@@ -79,6 +79,7 @@ void login() {
 
 void signup() {
 	string username, password;
+	cout << "Register new account: " << endl;
 	cout << "Username: "; cin >> username;
 	cout << "Password: "; cin >> password;
 
@@ -201,6 +202,11 @@ void chatInGroup() {
 
 
 
+
+
+
+
+// need refactory and cut to Header.h
 void handleResponse(string msg) {
 	// LOGIN
 	if (msg == "100") {
@@ -217,7 +223,7 @@ void handleResponse(string msg) {
 
 	}
 	else if (msg == "103") {
-		cout << "\nThis account has been logged in already in this session!\n";
+		cout << "\nAn account has been logged in already in this session!\n"; // fix here
 		navigateScreen(LOGIN_SCREEN);
 
 	}
@@ -230,14 +236,32 @@ void handleResponse(string msg) {
 	// SIGN UP
 	else if (msg == "110") {
 		cout << "\nCreate new account sucessfully\n";
+		navigateScreen(LOGIN_SCREEN);
 	}
 	
 	else if (msg == "111") {
 		cout << "\nUsername existed\n";
+		cout << "Do you want to continue to sign up ? (0: Back / 1: Continue) ";
+		int choice = getChoice(1);
+		if (choice == 1)
+			signup();
+		else
+			navigateScreen(LOGIN_SCREEN);
+	}
+
+	// LOG OUT
+	else if (msg == "120") {
+		cout << "\nLog out successfully\n";
+		navigateScreen(LOGIN_SCREEN);
+	}
+	else if (msg == "121") {
+		cout << "\nYou not logged in yet\n";
+		navigateScreen(LOGIN_SCREEN);
 	}
 	
 	// 
 	// else if ...
+
 	
 	else {
 		// msg = "999"
@@ -279,7 +303,6 @@ void handleMainMenu() {
 	// logout and back
 	case 1:
 		logout();
-		navigateScreen(LOGIN_SCREEN);
 		break;
 	// Inbox
 	case 2:
