@@ -204,19 +204,27 @@ void chatInGroup() {
 void handleResponse(string msg) {
 	// LOGIN
 	if (msg == "100") {
+		cout << "\nLogin successfully\n";
 		navigateScreen(MAIN_SCREEN);
 	}
 	else if (msg == "101") {
 		cout << "\nUsername not exist\n";
+		navigateScreen(LOGIN_SCREEN);
 	}
 	else if (msg == "102") {
 		cout << "\nPassword incorrect\n";
+		navigateScreen(LOGIN_SCREEN);
+
 	}
 	else if (msg == "103") {
 		cout << "\nThis account has been logged in already in this session!\n";
+		navigateScreen(LOGIN_SCREEN);
+
 	}
 	else if (msg == "104") {
-		cout << "\nThis account has been logged in already in this session!\n";
+		cout << "\nThis account has been logged in already in other session!\n";
+		navigateScreen(LOGIN_SCREEN);
+
 	}
 	
 	// SIGN UP
@@ -394,7 +402,7 @@ unsigned __stdcall recvThread(void *param) {
 			while (receiveBuffer.find("\r\n") != string::npos) {
 				size_t found = receiveBuffer.find("\r\n");
 				string message = receiveBuffer.substr(0, found); //message contains code received from server
-				std::cout << message; //display a message to user according to code received
+				//std::cout << message; //display a message to user according to code received
 
 				handleResponse(message);
 
@@ -439,8 +447,8 @@ int main(int argc, char* argv[]) {
 		return 0;
 	}
 
-	int timeout = 1000;
-	setsockopt(clientSock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(int));
+	/*int timeout = 1000;
+	setsockopt(clientSock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(int));*/
 
 	printf("Client started!\n");
 

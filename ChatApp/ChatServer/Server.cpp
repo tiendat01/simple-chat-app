@@ -1,135 +1,3 @@
-//// MultithreadTCPEchoServer.cpp : Defines the entry point for the console application.
-////
-//
-//#include "stdio.h"
-//#include "conio.h"
-//#include "string.h"
-//#include "ws2tcpip.h"
-//#include "winsock2.h"
-//#include "process.h"
-//#include<vector>
-//#include<iostream>
-//#include<map>
-//#include <sstream>
-//#define SERVER_PORT 5500
-//#define SERVER_ADDR "127.0.0.1"
-//#define BUFF_SIZE 2048
-//#pragma comment(lib, "ws2_32.lib")
-//typedef struct Socket {
-//	SOCKET socket;
-//	int id;
-//}Socket;
-//using namespace std;
-//vector<Socket>vt;
-//
-//using namespace std;
-//string convertToString(char* a) {
-//	string s = a;
-//	return s;
-//}
-//unsigned __stdcall recvThread(void *param) {
-//	char buff[BUFF_SIZE];
-//	int ret;
-//	Socket *s = (Socket*)param;
-//	SOCKET connectedSocket = s->socket;
-//	int id = s->id;
-//	while (1) {
-//		ret = recv(connectedSocket, buff, BUFF_SIZE, 0);
-//		if (ret == SOCKET_ERROR) {
-//			printf("Error %d: Cannot receive data.\n", WSAGetLastError());
-//			break;
-//		}
-//		else if (ret == 0) {
-//			printf("Client disconnects.\n");
-//			break;
-//		}
-//		else if (strlen(buff) > 0) {
-//			buff[ret] = 0;
-//			for (int i = 0; i < vt.size(); i++) {
-//				if (id != vt[i].id) {
-//					ret = send(vt[i].socket, buff, strlen(buff), 0);
-//				}
-//			}
-//		}
-//	}
-//	//closesocket(connectedSocket);
-//	return 0;
-//}
-//
-//int main(int argc, char* argv[])
-//{
-//
-//	//Step 1: Initiate WinSock
-//	WSADATA wsaData;
-//	WORD wVersion = MAKEWORD(2, 2);
-//	if (WSAStartup(wVersion, &wsaData)) {
-//		printf("Winsock 2.2 is not supported\n");
-//		return 0;
-//	}
-//
-//	//Step 2: Construct socket	
-//	SOCKET listenSock;
-//	listenSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-//
-//	//Step 3: Bind address to socket
-//	sockaddr_in serverAddr;
-//	serverAddr.sin_family = AF_INET;
-//	serverAddr.sin_port = htons(SERVER_PORT);
-//	inet_pton(AF_INET, SERVER_ADDR, &serverAddr.sin_addr);
-//	if (bind(listenSock, (sockaddr *)&serverAddr, sizeof(serverAddr)))
-//	{
-//		printf("Error %d: Cannot associate a local address with server socket.", WSAGetLastError());
-//		return 0;
-//	}
-//
-//	//Step 4: Listen request from client
-//	if (listen(listenSock, 10)) {
-//		printf("Error %d: Cannot place server socket in state LISTEN.", WSAGetLastError());
-//		return 0;
-//	}
-//
-//	printf("Server started!\n");
-//
-//	//Step 5: Communicate with client
-//	SOCKET connSocket;
-//	sockaddr_in clientAddr;
-//	char clientIP[INET_ADDRSTRLEN];
-//	int clientAddrLen = sizeof(clientAddr), clientPort;
-//	int i = 1;
-//	while (1) {
-//		connSocket = accept(listenSock, (sockaddr *)& clientAddr, &clientAddrLen);
-//		if (connSocket == SOCKET_ERROR)
-//			printf("Error %d: Cannot permit incoming connection.\n", WSAGetLastError());
-//		else {
-//			inet_ntop(AF_INET, &clientAddr.sin_addr, clientIP, sizeof(clientIP));
-//			clientPort = ntohs(clientAddr.sin_port);
-//			printf("Accept incoming connection from %s:%d\n", clientIP, clientPort);
-//			Socket *s = new Socket[1];
-//			s->socket = connSocket;
-//			s->id = i;
-//			i++;
-//			vt.push_back(*s);
-//			_beginthreadex(0, 0, recvThread, (void *)s, 0, 0); //start thread
-//		}
-//	}
-//
-//	closesocket(listenSock);
-//
-//	WSACleanup();
-//
-//	return 0;
-//}
-
-
-
-
-
-
-
-
-
-
-
 // SingleIOCPServer.cpp : Defines the entry point for the console application.
 //
 
@@ -155,9 +23,15 @@ using namespace std;
 #define RECEIVE 0
 #define SEND 1
 #define SERVER_ADDR "127.0.0.1"
-#define DELIMITER "\r\n"
+#define ENDING_DELIMITER "\r\n"
 
 #define LOGIN_MSG "LOGIN"
+
+#define LOGIN_SUCCESS "100"
+#define ACCOUNT_NOT_FOUND "101"
+#define INCORRECT_PASSWORD "102"
+#define ACCOUNT_LOGGED_IN "103"
+#define ACCOUNT_OTHER_SESSION "104"
 
 #pragma comment(lib, "Ws2_32.lib")
 
@@ -186,7 +60,8 @@ typedef struct {
 	list<SOCKET> clientSockList;
 } SOCKET_IOCP, *LPSOCKET_IOCP;
 
-map<string, pair<string, char>> users;
+
+map<string, tuple<string, SOCKET, int>> users;
 
 //// khai bao mang cho nhieu client
 //PER_HANDLE_DATA clients[1000];
@@ -194,11 +69,46 @@ map<string, pair<string, char>> users;
 unsigned __stdcall serverWorkerThread(LPVOID CompletionPortID);
 
 
-string outputResponseFrom(string request) {
+string handleLoginRequest(string content, LPPER_HANDLE_DATA client) {
+	string username = content.substr(0, content.find(" "));
+	string password = content.substr(content.find(" ") + 1);
+
+
+	if (users.find(username) == users.end() || username.length() <= 0)
+		return string(ACCOUNT_NOT_FOUND);
+
+	auto info = users.at(username); // info is a tuple
+
+	if (get<0>(info) != password)
+		return string(INCORRECT_PASSWORD);
+
+	// already logged in
+	if (get<2>(info) == 1) {
+		if (client->socket == get<1>(info))
+			return string(ACCOUNT_LOGGED_IN);
+		return string(ACCOUNT_OTHER_SESSION);
+	}
+
+	// login successfully
+	client->status = 1;
+	client->username = username;
+
+	map<string, tuple<string, SOCKET, int>>::iterator it = users.find(username);
+
+	if (it != users.end()) {
+		it->second = make_tuple(password, client->socket, client->status);
+	}
+
+	return string(LOGIN_SUCCESS);
+
+}
+
+
+string outputResponseFrom(string request, LPPER_HANDLE_DATA client) {
 	// LOGIN
-	if (request.find("LOGIN") != string::npos) {
-		request = request.substr(0, strlen(LOGIN_MSG) + 1);
-		return handleLoginRequest(request);
+	if (request.find(LOGIN_MSG) != string::npos) {
+		request = request.substr(strlen(LOGIN_MSG) + 1);
+		return handleLoginRequest(request, client);
 	}
 }
 
@@ -234,9 +144,8 @@ int main(int argc, CHAR* argv[])
 		string delimeter = " ";
 		string username = line.substr(0, line.find(delimeter));
 		string password = line.substr(line.find(delimeter) + 1, line.rfind(delimeter) - line.find(delimeter) - 1);
-		char status = line.substr(line.rfind(delimeter) + 1).at(0);
-		cout << username << password << status << endl;
-		users.insert({ username, make_pair(password, status) });
+		cout << username << " " << password << endl;
+		users.insert({ username, make_tuple(password, 0, 0) });
 	}
 
 
@@ -300,7 +209,6 @@ int main(int argc, CHAR* argv[])
 
 		iocp->clientSockList.push_back(acceptSock);
 
-
 		// Step 7: Create a socket information structure to associate with the socket
 		if ((perHandleData = (LPPER_HANDLE_DATA)GlobalAlloc(GPTR, sizeof(PER_HANDLE_DATA))) == NULL) {
 			printf("GlobalAlloc() failed with error %d\n", GetLastError());
@@ -313,7 +221,9 @@ int main(int argc, CHAR* argv[])
 		// Step 8: Associate the accepted socket with the original completion port
 		printf("Socket number %d got connected...\n", acceptSock);
 		perHandleData->socket = acceptSock; // tim 1 cho trong va dua vao mang clients: clients[i]->socket = acceptSock
+		perHandleData->status = 0;
 		memcpy(&(perHandleData->clientAddr), &clientAddr, sizeof(clientAddr));
+
 		if (CreateIoCompletionPort((HANDLE)acceptSock, iocp->completionPort, 
 			(DWORD)perHandleData, 0) == NULL) {
 			printf("CreateIoCompletionPort() failed with error %d\n", GetLastError());
@@ -376,7 +286,7 @@ unsigned __stdcall serverWorkerThread(LPVOID iocp)
 	DWORD flags;
 
 	string prevBuff;
-	queue<string> q;
+	queue<string> requestQueue;
 
 	while (TRUE) {
 		if (GetQueuedCompletionStatus(lpIocp->completionPort, &transferredBytes,
@@ -406,12 +316,15 @@ unsigned __stdcall serverWorkerThread(LPVOID iocp)
 		if (perIoData->operation == RECEIVE) {
 			int found = 0;
 			string receivceBuffer = string(perIoData->buffer);
+			receivceBuffer = prevBuff + receivceBuffer;
+			prevBuff.clear();
+			// stream handle
 			while ((found = receivceBuffer.find("\r\n")) != string::npos) {
-				receivceBuffer = prevBuff + receivceBuffer;
-				q.push(receivceBuffer.substr(0, found));
-				cout << receivceBuffer.substr(0, found) << endl;
-				prevBuff.erase();
-				receivceBuffer = receivceBuffer.substr(found + strlen(DELIMITER));
+				if (receivceBuffer.find("\r\n") > 0) {
+					requestQueue.push(receivceBuffer.substr(0, found));
+					//cout << "request from client: " << receivceBuffer.substr(0, found) << endl;
+					receivceBuffer = receivceBuffer.substr(found + strlen(ENDING_DELIMITER));
+				}
 			}
 			if (receivceBuffer.length() > 0)
 				prevBuff = receivceBuffer;
@@ -419,25 +332,31 @@ unsigned __stdcall serverWorkerThread(LPVOID iocp)
 
 
 			// handle request
-			while (!q.empty()) {
+			while (!requestQueue.empty()) {
+
+				cout << "handle request from client: " << requestQueue.front() << endl;
 
 
-				string response = outputResponseFrom(q.front());
+				// process
+				string response = outputResponseFrom(requestQueue.front(), perHandleData);
+				
+				response += ENDING_DELIMITER;
 
+				// send response to one client
 				LPPER_IO_OPERATION_DATA perIoDataToSend = new PER_IO_OPERATION_DATA();
 				ZeroMemory(&(perIoDataToSend->overlapped), sizeof(OVERLAPPED));
 				memset(perIoDataToSend, 0, sizeof(PER_IO_OPERATION_DATA));
-				memcpy(perIoDataToSend->buffer, response.c_str(), transferredBytes);
+				memcpy(perIoDataToSend->buffer, response.c_str(), response.length());
 				perIoDataToSend->dataBuff.buf = perIoDataToSend->buffer;
-				perIoDataToSend->dataBuff.len = transferredBytes;
+				perIoDataToSend->dataBuff.len = response.length();
 				perIoDataToSend->operation = SEND;
 
-				// send to one client
 				DWORD bytesToSend = 0;
 				if (WSASend(perHandleData->socket, &(perIoDataToSend->dataBuff), 1,
 					&bytesToSend, 0, &perIoDataToSend->overlapped, NULL) == SOCKET_ERROR && WSAGetLastError() != WSA_IO_PENDING)
 					if (perHandleData != NULL) {
 						closesocket(perHandleData->socket);
+						lpIocp->clientSockList.remove(perHandleData->socket);
 					}
 
 
@@ -472,7 +391,7 @@ unsigned __stdcall serverWorkerThread(LPVOID iocp)
 				//} // end while sending to all clients
 
 
-				q.pop();
+				requestQueue.pop();
 			}
 
 
