@@ -16,6 +16,11 @@ using namespace std;
 #define LOGOUT_REQ "LOGOUT"
 #define DELIMITER " "
 
+
+#define ACCOUNT_LEAVE_GROUP "LEAVE" 
+#define LIST_GROUP "LISTGROUP"
+#define LIST_MEMBERS_GROUP "LISTMEMBERS" 
+
 SOCKET clientSock;
 char recvBuff[BUFF_SIZE];
 
@@ -25,7 +30,8 @@ bool isLogin = false;
 SCREEN curScreen = LOGIN_SCREEN;
 vector<string> onlineUsersList;
 vector<string> joinedGroupList;
-
+int group = -1;
+int inbox = -1;
 
 // cut to ClientHeader.h
 /* The recv() wrapper function */
@@ -79,7 +85,6 @@ void login() {
 
 void signup() {
 	string username, password;
-	cout << "Register new account: " << endl;
 	cout << "Username: "; cin >> username;
 	cout << "Password: "; cin >> password;
 
@@ -168,12 +173,19 @@ void chatWith(string username) {
 }
 
 
-
+//linh
 void showListJoinedGroup() {
 	joinedGroupList.clear();
 	// ...
+	string req = string(LIST_GROUP) + ENDING_DELIMITER;
+	int ret = Send(clientSock, req, req.length(), 0);
 }
-
+//linh
+void showListMemberGroup() {
+	
+	string req = string(LIST_MEMBERS_GROUP) + string(DELIMITER) + to_string(group) + ENDING_DELIMITER;
+	int ret = Send(clientSock, req, req.length(), 0);
+}
 
 void createNewGroup() {
 
@@ -190,23 +202,39 @@ void reponseInvitation() {
 
 }
 
-
+//linh
 void leaveGroup() {
-
+	string req = ACCOUNT_LEAVE_GROUP + string(DELIMITER) + to_string(group) + ENDING_DELIMITER;
+	int ret = Send(clientSock, req, req.length(), 0);
 }
 
-
+//linh
 void chatInGroup() {
+
 	// load history of group chat
+	
+	
+	cout << "Enter Group; ";
+	int idGroup;
+	cin >> idGroup;
+	group = idGroup;
+	showChatGroupMenu();
+	int choice = getChoice(1);
+	switch (choice) {
+	case 0:
+
+	case 1:
+		showListMemberGroup();
+		break;
+	default:
+		break;
+		
+	}
+
 }
 
 
 
-
-
-
-
-// need refactory and cut to Header.h
 void handleResponse(string msg) {
 	// LOGIN
 	if (msg == "100") {
@@ -223,7 +251,7 @@ void handleResponse(string msg) {
 
 	}
 	else if (msg == "103") {
-		cout << "\nAn account has been logged in already in this session!\n"; // fix here
+		cout << "\nThis account has been logged in already in this session!\n";
 		navigateScreen(LOGIN_SCREEN);
 
 	}
@@ -236,33 +264,23 @@ void handleResponse(string msg) {
 	// SIGN UP
 	else if (msg == "110") {
 		cout << "\nCreate new account sucessfully\n";
-		navigateScreen(LOGIN_SCREEN);
 	}
 	
 	else if (msg == "111") {
 		cout << "\nUsername existed\n";
-		cout << "Do you want to continue to sign up ? (0: Back / 1: Continue) ";
-		int choice = getChoice(1);
-		if (choice == 1)
-			signup();
-		else
-			navigateScreen(LOGIN_SCREEN);
-	}
-
-	// LOG OUT
-	else if (msg == "120") {
-		cout << "\nLog out successfully\n";
-		navigateScreen(LOGIN_SCREEN);
-	}
-	else if (msg == "121") {
-		cout << "\nYou not logged in yet\n";
-		navigateScreen(LOGIN_SCREEN);
 	}
 	
 	// 
 	// else if ...
-
-	
+	//linh
+	else if (msg[0] == '3' && msg[1] == '6' && msg[2] == '0') {
+		msg = msg.substr(msg.find(" ") + 1);
+		cout << msg <<endl;
+	}
+	else if (msg[0] == '3' && msg[1] == '7' && msg[2] == '0') {
+		msg = msg.substr(msg.find(" ") + 1);
+		cout << msg << endl;
+	}
 	else {
 		// msg = "999"
 		cout << "\nBad request\n";
@@ -303,6 +321,7 @@ void handleMainMenu() {
 	// logout and back
 	case 1:
 		logout();
+		navigateScreen(LOGIN_SCREEN);
 		break;
 	// Inbox
 	case 2:
@@ -322,7 +341,7 @@ void handleInboxMenu() {
 
 	int choice = getChoice(1);
 	switch (choice) {
-	// back to Máin Menu
+	// back to Mï¿½in Menu
 	case 0:
 		navigateScreen(MAIN_SCREEN);
 		break;
@@ -339,7 +358,7 @@ void handleInboxMenu() {
 void handleGroupMenu() {
 	int choice = getChoice(5);
 	switch (choice) {
-		// back to Máin Menu
+		// back to Mï¿½in Menu
 	case 0:
 		navigateScreen(MAIN_SCREEN);
 		break;
@@ -355,12 +374,12 @@ void handleGroupMenu() {
 	case 3:
 		reponseInvitation();
 		break;
-		// leave group by groupid
+/*		// leave group by groupid
 	case 4: 
 		leaveGroup();
 		break;
-		// chat in group by groupid
-	case 5:
+		// chat in group by groupid*/
+	case 4:
 		chatInGroup();
 		break;
 	}
@@ -387,6 +406,7 @@ void navigateScreen(SCREEN screen) {
 		break;
 	case GROUP_SCREEN:
 		showListJoinedGroup();
+		Sleep(500);
 		showGroupMenu();
 		handleGroupMenu();
 		break;
@@ -430,6 +450,8 @@ unsigned __stdcall recvThread(void *param) {
 				handleResponse(message);
 
 				receiveBuffer = receiveBuffer.substr(found + 2); //cut the part of the received string that has been processed
+
+
 			}
 		}
 	}
