@@ -25,24 +25,18 @@ using namespace std;
 #define SERVER_ADDR "127.0.0.1"
 #define ENDING_DELIMITER "\r\n"
 
-// request message code 
-#define LOGIN_REQ "LOGIN"
-#define SIGNUP_REQ "REGISTER"
-#define LOGOUT_REQ "LOGOUT"
+#define LOGIN_MSG "LOGIN"
 
-
-// response code
 #define LOGIN_SUCCESS "100"
 #define ACCOUNT_NOT_FOUND "101"
 #define INCORRECT_PASSWORD "102"
 #define ACCOUNT_LOGGED_IN "103"
 #define ACCOUNT_OTHER_SESSION "104"
 
-#define SIGNUP_SUCCESS "110"
-#define ACCOUNT_EXISTED "111"
-
-#define LOGOUT_SUCESS "120"
-#define ACCOUNT_NOT_LOGGEDIN "121"
+//linh
+#define ACCOUNT_LEAVE_GROUP "LEAVE" 
+#define LIST_GROUP "LISTGROUP"
+#define LIST_MEMBERS_GROUP "LISTMEMBERS" 
 
 #pragma comment(lib, "Ws2_32.lib")
 
@@ -71,30 +65,17 @@ typedef struct {
 	list<SOCKET> clientSockList;
 } SOCKET_IOCP, *LPSOCKET_IOCP;
 
-
+map<int, string>groups;
+map<string, vector<int>>groupPerUser;
 map<string, tuple<string, SOCKET, int>> users;
-
+//username pass socket status
+map<int, vector<string>>listMembersPerGroup;
+//vector<int>idGroup;
+//vector<vector<string>>group;
 //// khai bao mang cho nhieu client
 //PER_HANDLE_DATA clients[1000];
 
 unsigned __stdcall serverWorkerThread(LPVOID CompletionPortID);
-
-void readAccountDb() {
-	ifstream file(".\\database\\account.txt");
-	string line;
-	if (!file.is_open()) {
-		cerr << "Could not open file " << "\\database\\account.txt" << endl;
-		exit(1);
-	}
-	users.clear();
-	while (getline(file, line)) {
-		string delimeter = " ";
-		string username = line.substr(0, line.find(delimeter));
-		string password = line.substr(line.find(delimeter) + 1, line.rfind(delimeter) - line.find(delimeter) - 1);
-		cout << username << " " << password << endl;
-		users.insert({ username, make_tuple(password, 0, 0) });
-	}
-}
 
 
 string handleLoginRequest(string content, LPPER_HANDLE_DATA client) {
@@ -112,9 +93,9 @@ string handleLoginRequest(string content, LPPER_HANDLE_DATA client) {
 
 	// already logged in
 	if (get<2>(info) == 1) {
-		if (client->socket != get<1>(info))
-			return string(ACCOUNT_OTHER_SESSION);
-		return string(ACCOUNT_LOGGED_IN);
+		if (client->socket == get<1>(info))
+			return string(ACCOUNT_LOGGED_IN);
+		return string(ACCOUNT_OTHER_SESSION);
 	}
 
 	// login successfully
@@ -131,79 +112,141 @@ string handleLoginRequest(string content, LPPER_HANDLE_DATA client) {
 
 }
 
+//linh
+string handleLeaveGroupRequest(string content, LPPER_HANDLE_DATA client) {
+	for (int i = 0; i < content.length(); i++) {
+		if (content[i] < '0' || content[i] > '9') {
+			return "999";
+		}
+	}
+	int idGroupUser = atoi(content.c_str());
+	string username = client->username;
+	if (client->status == 0) {
+		return "201";
+	}
+	vector<int>userGroup = groupPerUser[username];
+	std::vector<int>::iterator it;
+	//std::vector<string>::iterator it1;
 
-string handleSignupRequest(string content) {
-	string username = content.substr(0, content.find(" "));
-	string password = content.substr(content.find(" ") + 1);
+	auto i = listMembersPerGroup.find(idGroupUser);
+	if ( i == listMembersPerGroup.end()) {
+		return "312";
+	}
+	it = std::find(userGroup.begin(), userGroup.end(), idGroupUser);
+	if (it != userGroup.end()){
+		userGroup.erase(it);
+		//it1 = std::find(group[idGroupUser].begin(), group[idGroupUser].end(), username);
+		//group[idGroupUser].erase(it1);
+		for (int i = 0; i < listMembersPerGroup[idGroupUser].size(); i++) {
+			if (username != listMembersPerGroup[idGroupUser][i]) {
 
-	if (users.find(username) != users.end()) {
-		return string(ACCOUNT_EXISTED);
+			}
+		}
+		return "350";
 	}
 	else {
-		// update to database
-		ofstream file(".\\database\\account.txt", std::ios_base::app);
-		if (!file.is_open()) {
-			cerr << "Could not open file " << "\\database\\account.txt" << endl;
-			exit(1);
-		}
-		file << username << " " << password << endl;
-		readAccountDb();
-
-		return string(SIGNUP_SUCCESS);
+		return "341";
 	}
+	
+
 }
+//linh
+string handleListGroupRequest(string content, LPPER_HANDLE_DATA client) {
+	
+	if (content.length() != string(LIST_GROUP).length()) {
+		return "999";
+	}
+	if (client->status == 0) {
+		return "201";
+	}
+	string rep = "360 ";
+	string username = client->username;
+	vector<int>userGroup = groupPerUser[username];
+	for (int i = 0; i < groupPerUser[username].size(); i++) {
+		rep += to_string(groupPerUser[username][i]);
+		rep += "/";
+		rep += groups[groupPerUser[username][i]];
+		rep += " ";
+	}
+	return rep;
 
-string handleLogoutRequest(LPPER_HANDLE_DATA client) {
+}
+//linh
 
-	if (users.find(client->username) != users.end()) {
-		auto tuple1 = users.at(client->username);
-		if (get<2>(tuple1) == 0)
-			return string(ACCOUNT_NOT_LOGGEDIN);
-		else {
-
-			map<string, tuple<string, SOCKET, int>>::iterator it = users.find(client->username);
-
-			if (it != users.end()) {
-				it->second = make_tuple(get<0>(tuple1), client->socket, 0);
+string handleListMemberGroupRequest(string content, LPPER_HANDLE_DATA client) {
+	for (int i = 0; i < content.length(); i++) {
+		if (content[i] < '0' || content[i] > '9') {
+			return "999";
+		}
+	}
+	int idGroupUser = atoi(content.c_str());
+	string username = client->username;
+	if (client->status == 0) {
+		return "201";
+	}
+	vector<int>userGroup = groupPerUser[username];
+	auto i = listMembersPerGroup.find(idGroupUser);
+	if (i == listMembersPerGroup.end()) {
+		return "312";
+	}
+	std::vector<int>::iterator it;
+	it = std::find(userGroup.begin(), userGroup.end(), idGroupUser);
+	if (it != userGroup.end()) {
+		string rep = "370 ";
+		
+		for (int i = 0; i < listMembersPerGroup[idGroupUser].size(); i++) {
+			if (username != listMembersPerGroup[idGroupUser][i]) {
+				rep += listMembersPerGroup[idGroupUser][i];
+				if (i != listMembersPerGroup[idGroupUser].size() - 1) {
+					rep += " ";
+				}
 			}
-			client->status = 0;
-			client->username = "";
-			
-			return string(LOGOUT_SUCESS);
-
 		}
+		return rep;
 	}
-	return "";
-}
+	else {
+		return "341";
+	}
 
+
+}
 
 string outputResponseFrom(string request, LPPER_HANDLE_DATA client) {
 	// LOGIN
-	if (request.find(LOGIN_REQ) != string::npos && request.find(LOGIN_REQ) == 0) {
-		request = request.substr(strlen(LOGIN_REQ) + 1);
+	if (request.find(LOGIN_MSG) != string::npos) {
+		request = request.substr(strlen(LOGIN_MSG) + 1);
 		return handleLoginRequest(request, client);
 	}
-
-	// SIGNUP
-	if (request.find(SIGNUP_REQ) != string::npos && request.find(SIGNUP_REQ) == 0) {
-		request = request.substr(strlen(SIGNUP_REQ) + 1);
-		return handleSignupRequest(request);
+	if (request.find(ACCOUNT_LEAVE_GROUP) == 0) {//linh
+		request = request.substr(strlen(ACCOUNT_LEAVE_GROUP) + 1);
+		return handleLeaveGroupRequest(request, client);
 	}
-
-	// LOGOUT
-	if (request.find(LOGOUT_REQ) != string::npos && request.find(LOGOUT_REQ) == 0) {
-		//request = request.substr(strlen(LOGOUT_REQ) + 1);
-		return handleLogoutRequest(client);
+	if (request.find(LIST_GROUP) == 0) {//linh
+		request = string(LIST_GROUP);
+		return handleListGroupRequest(request, client);
 	}
-
-
+	if (request.find(LIST_MEMBERS_GROUP) == 0) {//linh
+		request = request.substr(string(LIST_MEMBERS_GROUP).length() + 1);
+		return handleListMemberGroupRequest(request, client);
+	}
 }
-
 
 
 
 int main(int argc, CHAR* argv[])
 {
+	listMembersPerGroup[1].push_back("linhvd");
+	listMembersPerGroup[1].push_back("giangtdk");
+	listMembersPerGroup[1].push_back("datnt");
+	listMembersPerGroup[2].push_back("linhvd");
+	listMembersPerGroup[2].push_back("giangtdk");
+	groups[1] = "dgl";
+	groups[2] = "gl";
+	groupPerUser["linhvd"].push_back(1);
+	groupPerUser["linhvd"].push_back(2);
+	groupPerUser["giangtdk"].push_back(1);
+	groupPerUser["giangtdk"].push_back(2);
+	groupPerUser["datnt"].push_back(1);
 	SOCKET acceptSock;
 
 	SOCKADDR_IN clientAddr;
@@ -222,7 +265,21 @@ int main(int argc, CHAR* argv[])
 	WSADATA wsaData;
 
 	// Step 0: read file account.txt
-	readAccountDb();
+	ifstream file(".\\database\\account.txt");
+	string line;
+	if (!file.is_open()) {
+		cerr << "Could not open file " << "\\database\\account.txt" << endl;
+		return 1;
+	}
+	while (getline(file, line)) {
+		string delimeter = " ";
+		string username = line.substr(0, line.find(delimeter));
+		string password = line.substr(line.find(delimeter) + 1, line.rfind(delimeter) - line.find(delimeter) - 1);
+		cout << username << " " << password << endl;
+		users.insert({ username, make_tuple(password, 0, 0) });
+	}
+
+
 
 	// Step 1: Init Winsock
 	if (WSAStartup((2, 2), &wsaData) != 0) {
@@ -294,7 +351,7 @@ int main(int argc, CHAR* argv[])
 			+ " Port: " + to_string(ntohs(clientAddr.sin_port));
 
 		// Step 8: Associate the accepted socket with the original completion port
-		printf("\nSocket number %d got connected...\n", acceptSock);
+		printf("Socket number %d got connected...\n", acceptSock);
 		perHandleData->socket = acceptSock; // tim 1 cho trong va dua vao mang clients: clients[i]->socket = acceptSock
 		perHandleData->status = 0;
 		memcpy(&(perHandleData->clientAddr), &clientAddr, sizeof(clientAddr));
