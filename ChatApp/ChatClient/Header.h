@@ -24,7 +24,8 @@ enum SCREEN
 	LOGIN_SCREEN,
 	MAIN_SCREEN,
 	INBOX_SCREEN,
-	GROUP_SCREEN
+	GROUP_SCREEN,
+	CHAT_GROUP_SCREEN
 };
 
 /**
@@ -64,8 +65,11 @@ void showGroupMenu();
 
 
 
-void stopConversationDialog();
+void showChatGroupMenu();
 
+
+
+void stopConversationDialog();
 
 
 

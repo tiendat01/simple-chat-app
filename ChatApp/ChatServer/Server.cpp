@@ -30,6 +30,10 @@ using namespace std;
 #define SIGNUP_REQ "REGISTER"
 #define LOGOUT_REQ "LOGOUT"
 
+#define CREATE_GROUP_REQ "CREATEGROUP"
+#define INVITE_REQ "INVITE"
+#define LIST_JOINED_GROUP "LISTGROUP"
+
 
 // response code
 #define LOGIN_SUCCESS "100"
@@ -42,7 +46,16 @@ using namespace std;
 #define ACCOUNT_EXISTED "111"
 
 #define LOGOUT_SUCESS "120"
-#define ACCOUNT_NOT_LOGGEDIN "121"
+
+#define CREATE_GROUP_SUCCESS "300"
+#define FOBBIDEN_TOKEN "301"
+
+#define LIST_GROUP_SUCCESS "360"
+
+
+
+#define BAD_REQUEST "999"
+#define ACCOUNT_NOT_LOGGED_IN "201"
 
 #pragma comment(lib, "Ws2_32.lib")
 
@@ -73,6 +86,11 @@ typedef struct {
 
 
 map<string, tuple<string, SOCKET, int>> users;
+map<int, string> groups;
+//map<string, map<int, string>> groupsPerUsername;
+
+int autoIncrementGroupId = 1; // groupId start from 1 and auto increment
+
 
 //// khai bao mang cho nhieu client
 //PER_HANDLE_DATA clients[1000];
@@ -90,10 +108,28 @@ void readAccountDb() {
 	while (getline(file, line)) {
 		string delimeter = " ";
 		string username = line.substr(0, line.find(delimeter));
-		string password = line.substr(line.find(delimeter) + 1, line.rfind(delimeter) - line.find(delimeter) - 1);
+		string password = line.substr(line.find(delimeter) + 1);
 		cout << username << " " << password << endl;
 		users.insert({ username, make_tuple(password, 0, 0) });
 	}
+	file.close();
+}
+
+void readGroupDb() {
+	ifstream file(".\\database\\group.txt");
+	string line;
+	if (!file.is_open()) {
+		cerr << "Could not open file " << ".\\database\\group.txt" << endl;
+		exit(1);
+	}
+	groups.clear();
+	while (getline(file, line)) {
+		string groupIdStr = line.substr(0, line.find(" "));
+		string groupDisplayName = line.substr(line.find(" ") + 1);
+		int groupId = atoi(groupIdStr.c_str());
+		groups.insert({ groupId, groupDisplayName });
+	}
+	file.close();
 }
 
 
@@ -101,8 +137,10 @@ string handleLoginRequest(string content, LPPER_HANDLE_DATA client) {
 	string username = content.substr(0, content.find(" "));
 	string password = content.substr(content.find(" ") + 1);
 
+	if (username.length() <= 0)
+		return string(BAD_REQUEST);
 
-	if (users.find(username) == users.end() || username.length() <= 0)
+	if (users.find(username) == users.end())
 		return string(ACCOUNT_NOT_FOUND);
 
 	auto info = users.at(username); // info is a tuple
@@ -120,6 +158,7 @@ string handleLoginRequest(string content, LPPER_HANDLE_DATA client) {
 	// login successfully
 	client->status = 1;
 	client->username = username;
+	cout << client->username << endl;
 
 	map<string, tuple<string, SOCKET, int>>::iterator it = users.find(username);
 
@@ -136,6 +175,9 @@ string handleSignupRequest(string content) {
 	string username = content.substr(0, content.find(" "));
 	string password = content.substr(content.find(" ") + 1);
 
+	if (username.length() <= 0)
+		return string(BAD_REQUEST);
+
 	if (users.find(username) != users.end()) {
 		return string(ACCOUNT_EXISTED);
 	}
@@ -147,7 +189,9 @@ string handleSignupRequest(string content) {
 			exit(1);
 		}
 		file << username << " " << password << endl;
-		readAccountDb();
+		readAccountDb(); // reload data
+
+		file.close();
 
 		return string(SIGNUP_SUCCESS);
 	}
@@ -158,7 +202,7 @@ string handleLogoutRequest(LPPER_HANDLE_DATA client) {
 	if (users.find(client->username) != users.end()) {
 		auto tuple1 = users.at(client->username);
 		if (get<2>(tuple1) == 0)
-			return string(ACCOUNT_NOT_LOGGEDIN);
+			return string(ACCOUNT_NOT_LOGGED_IN);
 		else {
 
 			map<string, tuple<string, SOCKET, int>>::iterator it = users.find(client->username);
@@ -173,30 +217,145 @@ string handleLogoutRequest(LPPER_HANDLE_DATA client) {
 
 		}
 	}
-	return "";
+	return string(BAD_REQUEST);
 }
+
+string handleCreateGroupRequest(string request, LPPER_HANDLE_DATA client) {
+	
+	if (request.find("/") != string::npos)
+		return string(FOBBIDEN_TOKEN);
+	if (client->status == 0)
+		return string(ACCOUNT_NOT_LOGGED_IN);
+
+	int groupId = autoIncrementGroupId++; // from 0
+	string groupName = request;
+
+	ofstream file;
+	string filename = ".\\database\\group.txt";
+	file.open(filename, std::ios_base::app | std::ios_base::out);
+	file << groupId << " " << groupName << endl;
+	file.close();
+
+	// update map
+	readGroupDb();
+
+	filename = ".\\database\\group-members\\group" + to_string(groupId) + ".txt";
+	file.open(filename, std::ios_base::app | std::ios_base::out);
+	file << client->username << endl;
+	file.close();
+
+	filename = ".\\database\\joined-group-by-username\\" + client->username + ".txt";
+	file.open(filename, std::ios_base::app | std::ios_base::out);
+	file << to_string(groupId) << endl;
+	file.close();
+
+	return string(CREATE_GROUP_SUCCESS) + " " + groupName;
+
+}
+
+string handleInviteRequest(string content, LPPER_HANDLE_DATA client) {
+	if (client->status == 0)
+		return string(ACCOUNT_NOT_LOGGED_IN);
+	string destUsername = content.substr(0, content.find(" "));
+	int groupId = atoi(content.substr(content.find(" ") + 1).c_str());
+
+	cout << destUsername << " " << groupId;
+
+	// check exception here ...
+	if (users.find(destUsername) == users.end())
+		return "101";
+
+	if (groups.find(groupId) == groups.end())
+		return "312";
+
+	string path = ".\\database\\group-members\\group" + to_string(groupId) + ".txt";
+	ifstream file(path);
+	if (!file.is_open()) {
+		cerr << "Could not open file " << path << endl;
+		exit(1);
+	}
+
+	string line;
+	bool isInGroup = false;
+	while (getline(file, line)) {
+		if (line.find(destUsername) != string::npos)
+			return "313";
+		if (line.find(client->username) != string::npos)
+			isInGroup = true;
+	}
+
+	if (!isInGroup)
+		return "341";
+
+}
+
+
+string handleListGroupRequest(LPPER_HANDLE_DATA client) {
+	string path = ".\\database\\joined-group-by-username\\" + client->username + ".txt";
+	ifstream file(path);
+	string line;
+	if (!file.is_open()) {
+		cerr << "Could not open file " << path << endl;
+		return string(LIST_GROUP_SUCCESS) + "/";
+	}
+	vector<pair<int, string>> joinedGroupPerUsername;
+	string responseBody = string(LIST_GROUP_SUCCESS) + " ";
+
+	while (getline(file, line)) {
+		int groupId = atoi(line.c_str());
+		if (groups.find(groupId) == groups.end())
+			continue;
+		responseBody += (line + " " + groups.at(groupId) + "/");
+
+	}
+
+	return responseBody;
+}
+
 
 
 string outputResponseFrom(string request, LPPER_HANDLE_DATA client) {
 	// LOGIN
-	if (request.find(LOGIN_REQ) != string::npos && request.find(LOGIN_REQ) == 0) {
+	if (request.find(LOGIN_REQ) != string::npos && request.find(LOGIN_REQ) == 0 
+		&& request.find(" ") == strlen(LOGIN_REQ)) {
 		request = request.substr(strlen(LOGIN_REQ) + 1);
 		return handleLoginRequest(request, client);
 	}
 
 	// SIGNUP
-	if (request.find(SIGNUP_REQ) != string::npos && request.find(SIGNUP_REQ) == 0) {
+	if (request.find(SIGNUP_REQ) != string::npos && request.find(SIGNUP_REQ) == 0
+		&& request.find(" ") == strlen(SIGNUP_REQ)) {
 		request = request.substr(strlen(SIGNUP_REQ) + 1);
 		return handleSignupRequest(request);
 	}
 
 	// LOGOUT
 	if (request.find(LOGOUT_REQ) != string::npos && request.find(LOGOUT_REQ) == 0) {
-		//request = request.substr(strlen(LOGOUT_REQ) + 1);
 		return handleLogoutRequest(client);
 	}
 
 
+	// CREATE NEW GROUP: CREATEGROUP ... (if not => bad request)
+	if (request.find(CREATE_GROUP_REQ) != string::npos && request.find(CREATE_GROUP_REQ) == 0
+		&& request.find(" ") == strlen(CREATE_GROUP_REQ)) {
+		request = request.substr(strlen(CREATE_GROUP_REQ) + 1);
+		return handleCreateGroupRequest(request, client);
+	}
+
+	// INVITE TO NEW GROUP: INVITE username groupId (if not => bad request)
+	if (request.find(INVITE_REQ) != string::npos && request.find(INVITE_REQ) == 0
+		&& request.find(" ") == strlen(INVITE_REQ) && request.substr(request.find(" ") + 1).find(" ") != string::npos) {
+		request = request.substr(strlen(INVITE_REQ) + 1);
+		return handleInviteRequest(request, client);
+	}
+
+	// LIST JOINED GROUP of client
+	if (request.find(LIST_JOINED_GROUP) != string::npos && request.find(LIST_JOINED_GROUP) == 0) {
+		return handleListGroupRequest(client);
+	}
+
+
+	return string(BAD_REQUEST);
 }
 
 
@@ -223,6 +382,8 @@ int main(int argc, CHAR* argv[])
 
 	// Step 0: read file account.txt
 	readAccountDb();
+	readGroupDb();
+
 
 	// Step 1: Init Winsock
 	if (WSAStartup((2, 2), &wsaData) != 0) {
