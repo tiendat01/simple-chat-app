@@ -68,9 +68,18 @@ void showChatGroupMenu() {
 	printf("\n\n-------------- CHAT GROUP MENU -----------------\n");
 	printf("Choose option: Press keyboard a number:\n");
 	printf("0. Back\n");
-	printf("1. List online members in group by groupId\n");
-	printf("2. Chat in this group\n");
-	printf("3. Leave group chat by group id\n");
+	printf("1. List online members in this group\n");
+	printf("2. Leave this group chat\n");
+	printf("3. Go to group chat box\n");
+	
+}
+
+void showGroupChatBox(const char* groupDisplayName) {
+	printf("\n\n ------------------ %s -----------------------\n", groupDisplayName);
+	printf("Choose option: Press keyboard a number:\n");
+	printf("0. Back\n");
+	printf("1. Messaging\n");
+	printf("2. Show group chat box\n");
 }
 
 // inbox
