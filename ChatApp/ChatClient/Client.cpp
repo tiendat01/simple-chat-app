@@ -7,7 +7,8 @@
 #include <string>
 #include <vector>
 #include "Header.h"
-
+#include <sstream>
+#include<stack>
 #pragma comment(lib, "ws2_32.lib")
 using namespace std;
 
@@ -15,6 +16,13 @@ using namespace std;
 #define SIGNUP_REQ "REGISTER"
 #define LOGOUT_REQ "LOGOUT"
 #define DELIMITER " "
+
+
+#define ACCOUNT_LEAVE_GROUP "LEAVE" 
+#define LIST_GROUP "LISTGROUP"
+#define LIST_MEMBERS_GROUP "LISTMEMBERS" 
+#define LOAD_MESSAGE  "LOADMESSAGE"
+#define MESSAGE "MESSAGE"
 
 SOCKET clientSock;
 char recvBuff[BUFF_SIZE];
@@ -25,8 +33,15 @@ bool isLogin = false;
 SCREEN curScreen = LOGIN_SCREEN;
 vector<string> onlineUsersList;
 vector<string> joinedGroupList;
+vector<int> joinedIDGroupList;
+int group = -1;
+int inbox = -1;
+int codescreen = 0;
+stack<int>group1;
+string listmessage;
+string usernameLogin;
 
-
+void handleMainMenu();
 // cut to ClientHeader.h
 /* The recv() wrapper function */
 int Receive(SOCKET s, char *buff, int size, int flags) {
@@ -53,11 +68,22 @@ int Send(SOCKET s, string request, int size, int flags) {
 }
 
 
+vector<string> simple_tokenizer(string s)
+{
+	stringstream ss(s);
+	string word;
+	vector<string>sp;
+	while (ss >> word) {
+		sp.push_back(word);
+	}
+	return sp;
+}
+
 // cut to ClientHeader.h
 int getChoice(int maxChoice) {
 	int choice = -1;
 	do {
-		cout << "Your choice: ";
+		cout << "\nYour choice: ";
 		cin >> choice;
 		//cin.ignore();
 	} while (choice > maxChoice || choice < 0);
@@ -71,7 +97,7 @@ void login() {
 	cout << "Password: "; cin >> password;
 
 	string req = LOGIN_REQ + string(DELIMITER) + username + " " + password + ENDING_DELIMITER;
-
+	usernameLogin = username;
 	int ret = Send(clientSock, req, req.length(), 0);
 
 }
@@ -167,12 +193,72 @@ void chatWith(string username) {
 }
 
 
+//linh
 
-void showListJoinedGroup() {
-	joinedGroupList.clear();
-	// ...
+void showListGroupChat() {
+	string req = LOAD_MESSAGE + string(DELIMITER) + to_string(group) + ENDING_DELIMITER;
+	int ret = Send(clientSock, req, req.length(), 0);
 }
 
+void chatGroup() {
+	bool back = false;
+	string value;
+	while (!back) {
+
+		do
+		{
+			
+			//check if any input.
+			if (_kbhit()) {
+				system("cls");
+				showListGroupChat();
+				Sleep(1000);
+				cout << "Enter: ";
+				//probable user started to type, block to read till the user press Enter.
+				std::getline(std::cin, value);
+
+				//if success
+				if (std::cin.good()) {
+					//cout << "(sent)";
+				}
+				else {
+					//firstly, clear error flag 
+					std::cin.clear();
+					//ignore 
+					std::cin.ignore(10000, '\n');
+
+				}
+				if (value.length() != 0) {
+					string req = "MESSAGE" + string(DELIMITER) + to_string(group) + string(DELIMITER) + value + ENDING_DELIMITER;
+					int ret = Send(clientSock, req, req.length(), 0);
+					// send to server and save to vector
+					// ....
+
+					//print
+					std::cout << value << std::endl;
+				}
+			}
+
+			//check if Esc Pressed
+		} while (GetAsyncKeyState(VK_ESCAPE) == 0);
+
+	}
+}
+
+//linh
+void showListJoinedGroup() {
+	joinedGroupList.clear();
+	joinedIDGroupList.clear();
+	// ...
+	string req = string(LIST_GROUP) + ENDING_DELIMITER;
+	int ret = Send(clientSock, req, req.length(), 0);
+}
+//linh
+void showListMemberGroup() {
+	
+	string req = string(LIST_MEMBERS_GROUP) + string(DELIMITER) + to_string(group) + ENDING_DELIMITER;
+	int ret = Send(clientSock, req, req.length(), 0);
+}
 
 void createNewGroup() {
 
@@ -189,20 +275,115 @@ void reponseInvitation() {
 
 }
 
-
+//linh
 void leaveGroup() {
-
+	string req = ACCOUNT_LEAVE_GROUP + string(DELIMITER) + to_string(group) + ENDING_DELIMITER;
+	int ret = Send(clientSock, req, req.length(), 0);
 }
 
 
+//linh
+void chatGroup1() {
+	int messageLen = 0;
+	bool check = true;
+	do {	
+		system("cls");
+		showListGroupChat();
+		//Sleep(500);
+		//cout << listmessage << endl;
+		Sleep(1000);
+		//cout << "Enter: ";
+		char buff[BUFF_SIZE];
+		memset(buff, 0, BUFF_SIZE);
+		fflush(stdin);
+		gets_s(buff, BUFF_SIZE);
+		messageLen = strlen(buff);
+		if (strlen(buff)>0 && buff[0] != '1') {
+			string req = "MESSAGE" + string(DELIMITER) + to_string(group) + string(DELIMITER) + string(buff) + ENDING_DELIMITER;
+			int ret = Send(clientSock, req, req.length(), 0);
+		}
+		else {
+			if (buff[0] == '1') {
+				check = false;
+			}
+		}
+	} while (check);
+	codescreen = 0;
+}
+
+//linh
 void chatInGroup() {
+	showListJoinedGroup();
+	Sleep(200);
 	// load history of group chat
+	int idGroup;
+	bool checkGroup = false;
+	int n = 0;
+	do {
+		if (n != 0) {
+			cout << "Group invalid!\n";
+		}
+		cout << "Enter Group: ";
+		cin >> idGroup;
+		n++;
+		std::vector<int>::iterator it = std::find(joinedIDGroupList.begin(), joinedIDGroupList.end(), idGroup);
+		if (it != joinedIDGroupList.end()) {
+			checkGroup = true;
+		}
+	} while (!checkGroup);
+	group = idGroup;
+	bool check = true;
+	while (check) {
+		Sleep(200);
+		showChatGroupMenu();
+		int choice = getChoice(3);
+		switch (choice) {
+		case 0:
+			group = -1;
+			check = false;
+			break;
+		case 1:
+			showListMemberGroup();
+			break;
+		case 2:
+			codescreen = 1;
+			chatGroup1();
+			break;
+		case 3:
+			leaveGroup();
+			Sleep(200);
+			group = -1;
+			check = false;
+			break;
+		default:
+			break;
+		}
+
+	}
 }
 
-
+void handleLoginMenu() {
+	int choice = getChoice(2);
+	switch (choice) {
+	case 0:
+		closesocket(clientSock);
+		WSACleanup();
+		exit(0);
+		break;
+	case 1:
+		login();
+		break;
+	case 2:
+		signup();
+		break;
+	default:
+		break;
+	}
+}
 
 void handleResponse(string msg) {
 	// LOGIN
+	//cout << msg;
 	if (msg == "100") {
 		cout << "\nLogin successfully\n";
 		navigateScreen(MAIN_SCREEN);
@@ -238,7 +419,43 @@ void handleResponse(string msg) {
 	
 	// 
 	// else if ...
-	
+	//linh
+	else if (msg[0] == '3' && msg[1] == '6' && msg[2] == '0') {
+		msg = msg.substr(msg.find(" ") + 1);
+		vector<string>splitmsg = simple_tokenizer(msg);
+		for (int i = 0; i < splitmsg.size(); i++) {
+			string idGroup = splitmsg[i].substr(0, splitmsg[i].find("/"));
+			joinedIDGroupList.push_back(atoi(idGroup.c_str()));
+		}
+		cout << msg <<endl;
+	}
+	else if (msg[0] == '3' && msg[1] == '7' && msg[2] == '0') {
+		msg = msg.substr(msg.find(" ") + 1);
+		cout << msg << endl;
+	}
+	else if (msg.substr(0, 3) == "380") {
+		msg = msg.substr(msg.find(" ") + 1);
+		//listmessage = msg;
+		cout << msg << endl;
+	}
+	else if (msg.substr(0, 3) == "390") {
+		vector<string>response = simple_tokenizer(msg);
+		int groupIdmsg = atoi(response[1].c_str());
+		if (group == groupIdmsg && response[2] != usernameLogin && codescreen == 1) {
+			system("cls");
+			showListGroupChat();
+		}
+		//cout << "send message successfully" << endl;
+
+	}
+	else if (msg.substr(0, 3) == "350") {
+		cout << "leave group successfully" << endl;
+		group = -1;
+		codescreen = 0;
+		//handleMainMenu();
+	}
+
+
 	else {
 		// msg = "999"
 		cout << "\nBad request\n";
@@ -247,24 +464,7 @@ void handleResponse(string msg) {
 }
 
 
-void handleLoginMenu() {
-	int choice = getChoice(2);
-	switch (choice) {
-	case 0: 
-		closesocket(clientSock);
-		WSACleanup();
-		exit(0);
-		break;
-	case 1:
-		login();
-		break;
-	case 2:
-		signup();
-		break;
-	default:
-		break;
-	}
-}
+
 
 void handleMainMenu() {
 	int choice = getChoice(3);
@@ -299,7 +499,7 @@ void handleInboxMenu() {
 
 	int choice = getChoice(1);
 	switch (choice) {
-	// back to Máin Menu
+	// back to Mï¿½in Menu
 	case 0:
 		navigateScreen(MAIN_SCREEN);
 		break;
@@ -314,34 +514,39 @@ void handleInboxMenu() {
 
 
 void handleGroupMenu() {
-	int choice = getChoice(5);
-	switch (choice) {
-		// back to Máin Menu
-	case 0:
-		navigateScreen(MAIN_SCREEN);
-		break;
-		// create new group chat
-	case 1:
-		createNewGroup();
-		break;
-		//
-	case 2:
-		invite();
-		break;
-		// 
-	case 3:
-		reponseInvitation();
-		break;
-		// leave group by groupid
-	case 4: 
-		leaveGroup();
-		break;
-		// chat in group by groupid
-	case 5:
-		chatInGroup();
-		break;
+	while (1) {
+		cout << "list group: \n";
+		showListJoinedGroup();
+		Sleep(500);
+		showGroupMenu();
+		int choice = getChoice(5);
+		switch (choice) {
+			// back to Mï¿½in Menu
+		case 0:
+			navigateScreen(MAIN_SCREEN);
+			break;
+			// create new group chat
+		case 1:
+			createNewGroup();
+			break;
+			//
+		case 2:
+			invite();
+			break;
+			// 
+		case 3:
+			reponseInvitation();
+			break;
+			/*		// leave group by groupid
+				case 4:
+					leaveGroup();
+					break;
+					// chat in group by groupid*/
+		case 4:
+			chatInGroup();
+			break;
+		}
 	}
-
 }
 
 
@@ -363,9 +568,12 @@ void navigateScreen(SCREEN screen) {
 		handleInboxMenu();
 		break;
 	case GROUP_SCREEN:
-		showListJoinedGroup();
-		showGroupMenu();
+		//system("cls");
+		
 		handleGroupMenu();
+		break;
+	case CHAT_GROUP_SCREEN:
+		chatGroup1();
 		break;
 	default:
 		break;
@@ -407,6 +615,8 @@ unsigned __stdcall recvThread(void *param) {
 				handleResponse(message);
 
 				receiveBuffer = receiveBuffer.substr(found + 2); //cut the part of the received string that has been processed
+
+
 			}
 		}
 	}
@@ -419,6 +629,7 @@ unsigned __stdcall recvThread(void *param) {
 
 
 int main(int argc, char* argv[]) {
+	group1.push(-1);
 
 	InitializeCriticalSection(&criticalSection);
 
