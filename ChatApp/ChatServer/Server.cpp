@@ -31,8 +31,14 @@ using namespace std;
 #define LOGOUT_REQ "LOGOUT"
 
 #define CREATE_GROUP_REQ "CREATEGROUP"
+#define LEAVE_GROUP_REQ "LEAVEGROUP"
+
+
 #define INVITE_REQ "INVITE"
-#define LIST_JOINED_GROUP "LISTGROUP"
+#define GET_INVITATION_REQ "GETINVITATION"
+#define ACCEPT_REQ "ACCEPT"
+#define DENY_REQ "DENY"
+#define LIST_JOINED_GROUP_REQ "LISTGROUP"
 
 
 // response code
@@ -53,6 +59,8 @@ using namespace std;
 #define LIST_GROUP_SUCCESS "360"
 
 
+
+#define GET_INVITATION_SUCESS "320"
 
 #define BAD_REQUEST "999"
 #define ACCOUNT_NOT_LOGGED_IN "201"
@@ -97,6 +105,18 @@ int autoIncrementGroupId = 1; // groupId start from 1 and auto increment
 
 unsigned __stdcall serverWorkerThread(LPVOID CompletionPortID);
 
+void readUniqueGroupId() {
+	ifstream file(".\\database\\unique-group-id.txt");
+	string line;
+	if (!file.is_open()) {
+		cerr << "Could not open file " << "\\database\\account.txt" << endl;
+		exit(1);
+	}
+	file >> line;
+	autoIncrementGroupId = atoi(line.c_str());
+	file.close();
+}
+
 void readAccountDb() {
 	ifstream file(".\\database\\account.txt");
 	string line;
@@ -133,6 +153,9 @@ void readGroupDb() {
 }
 
 
+
+/// ########### PART 1: LOG IN, SIGN UP, LOG OUT ###########
+
 string handleLoginRequest(string content, LPPER_HANDLE_DATA client) {
 	string username = content.substr(0, content.find(" "));
 	string password = content.substr(content.find(" ") + 1);
@@ -158,7 +181,6 @@ string handleLoginRequest(string content, LPPER_HANDLE_DATA client) {
 	// login successfully
 	client->status = 1;
 	client->username = username;
-	cout << client->username << endl;
 
 	map<string, tuple<string, SOCKET, int>>::iterator it = users.find(username);
 
@@ -190,7 +212,14 @@ string handleSignupRequest(string content) {
 		}
 		file << username << " " << password << endl;
 		readAccountDb(); // reload data
+		file.close();
 
+		string filename = ".\\database\\joined-group-by-username\\" + username + ".txt";
+		file.open(filename, std::ios_base::app | std::ios_base::out);
+		file.close();
+		
+		filename = ".\\database\\invite-request\\" + username + ".txt";
+		file.open(filename, std::ios_base::app | std::ios_base::out);
 		file.close();
 
 		return string(SIGNUP_SUCCESS);
@@ -220,6 +249,12 @@ string handleLogoutRequest(LPPER_HANDLE_DATA client) {
 	return string(BAD_REQUEST);
 }
 
+
+
+
+/// ########### PART 3: GROUP CHAT ###########
+
+
 string handleCreateGroupRequest(string request, LPPER_HANDLE_DATA client) {
 	
 	if (request.find("/") != string::npos)
@@ -227,7 +262,7 @@ string handleCreateGroupRequest(string request, LPPER_HANDLE_DATA client) {
 	if (client->status == 0)
 		return string(ACCOUNT_NOT_LOGGED_IN);
 
-	int groupId = autoIncrementGroupId++; // from 0
+	int groupId = autoIncrementGroupId++; // from 1
 	string groupName = request;
 
 	ofstream file;
@@ -249,6 +284,15 @@ string handleCreateGroupRequest(string request, LPPER_HANDLE_DATA client) {
 	file << to_string(groupId) << endl;
 	file.close();
 
+	filename = ".\\database\\group-messages\\" + groupName + ".txt";
+	file.open(filename, std::ios_base::app | std::ios_base::out);
+	file.close();
+
+	filename = ".\\database\\unique-group-id.txt";
+	file.open(filename, std::ios_base::out);
+	file << autoIncrementGroupId;
+	file.close();
+
 	return string(CREATE_GROUP_SUCCESS) + " " + groupName;
 
 }
@@ -263,34 +307,184 @@ string handleInviteRequest(string content, LPPER_HANDLE_DATA client) {
 
 	// check exception here ...
 	if (users.find(destUsername) == users.end())
-		return "101";
+		return string(ACCOUNT_NOT_FOUND);
 
 	if (groups.find(groupId) == groups.end())
 		return "312";
 
 	string path = ".\\database\\group-members\\group" + to_string(groupId) + ".txt";
-	ifstream file(path);
-	if (!file.is_open()) {
+	string line;
+	ifstream fin;
+	fin.open(path, std::ios_base::in);
+	if (!fin.is_open()) {
 		cerr << "Could not open file " << path << endl;
 		exit(1);
 	}
 
-	string line;
-	bool isInGroup = false;
-	while (getline(file, line)) {
-		if (line.find(destUsername) != string::npos)
-			return "313";
-		if (line.find(client->username) != string::npos)
-			isInGroup = true;
-	}
+	bool isSrcInGroup = false; // check if sender is in group
+	bool isDesInGroup = false; // check if receiver has already in group
 
-	if (!isInGroup)
-		return "341";
+	while (getline(fin, line)) {
+		if (line.find(destUsername) != string::npos) {
+			isDesInGroup = true;
+		}
+			
+		if (line.find(client->username) != string::npos) {
+			isSrcInGroup = true;
+		}	
+	}
+	fin.close();
+
+	if (!isSrcInGroup)
+		return "341"; // sender not in group so cannot invite anyone
+	if (isDesInGroup)
+		return "313"; // receiver already in group
+
+	path = ".\\database\\invite-request\\" + destUsername + ".txt";
+	fin.open(path, std::ios_base::in);
+	while (getline(fin, line)) {
+		if (atoi(line.substr(0, line.find(" ")).c_str()) == groupId
+			&& line.substr(line.find(" ") + 1) == client->username)
+			return "314";
+	}
+	fin.close();
+
+	// sucess
+	ofstream fout;
+	fout.open(path, std::ios_base::out | std::ios_base::app);
+	fout << groupId << " " << client->username << endl;
+	fout.close();
+	return "310";
 
 }
 
 
+string handleGetInvitation(LPPER_HANDLE_DATA client) {
+	if (client->status == 0)
+		return string(ACCOUNT_NOT_LOGGED_IN);
+	
+	string path = ".\\database\\invite-request\\" + client->username + ".txt";
+	ifstream fin(path);
+	string line;
+
+	string respondBody = string(GET_INVITATION_SUCESS) + " ";
+	while (getline(fin, line)) {
+		int find = line.find(" ");
+		int groupId = atoi(line.substr(0, find).c_str());
+		string groupDisplayName = groups.at(groupId);
+		string fromUsername = line.substr(find + 1);
+
+		respondBody += to_string(groupId) + " " + groupDisplayName + " " + fromUsername + "/";
+	}
+
+	return respondBody;
+}
+
+
+
+string handleAcceptInvitation(string content, LPPER_HANDLE_DATA client) {
+	if (client->status == 0)
+		return string(ACCOUNT_NOT_LOGGED_IN);
+	int groupId = atoi(content.c_str()); // content is groupId in string
+	if (groups.find(groupId) == groups.end())
+		return "312";
+	string 	path = ".\\database\\group-members\\group" + content + ".txt";
+	ifstream fin(path);
+	string line;
+	vector<string> fileContent;
+	while (getline(fin, line)) {
+		if (line == client->username)
+			return "332";
+	}
+	fin.close();
+	
+	path = ".\\database\\invite-request\\" + client->username + ".txt";
+	fin.open(path, std::ios_base::in);
+	bool isInvited = false;
+	while (getline(fin, line)) {
+		fileContent.push_back(line);
+		if (content == line.substr(0, line.find(" ")))
+			isInvited = true;
+	}
+	fin.close();
+	if (!isInvited)
+		return "331";
+
+	// sucess:
+	path = ".\\database\\invite-request\\" + client->username + ".txt";
+	ofstream fout;
+	fout.open(path, std::ios_base::out | std::ios_base::trunc);
+	for (auto it = fileContent.begin(); it != fileContent.end(); it++) {
+		string line = *it;
+		if (line.find(content) != 0)
+			fout << line << endl;
+	}
+	fout.close();
+
+	path = ".\\database\\group-members\\group" + content + ".txt";
+	fout.open(path, std::ios_base::out | std::ios_base::app);
+	fout << client->username << endl;
+	fout.close();
+
+	path = ".\\database\\joined-group-by-username\\" + client->username + ".txt";
+	fout.open(path, std::ios_base::out | std::ios_base::app);
+	fout << content << endl;
+	fout.close();
+
+	return "330 " + content + " " + groups.at(groupId);
+
+}
+
+
+string handleDenyInvitation(string content, LPPER_HANDLE_DATA client) {
+	if (client->status == 0)
+		return string(ACCOUNT_NOT_LOGGED_IN);
+	int groupId = atoi(content.c_str()); // content is groupId in string
+	if (groups.find(groupId) == groups.end())
+		return "312";
+	string 	path = ".\\database\\group-members\\group" + content + ".txt";
+	ifstream fin(path);
+	string line;
+	vector<string> fileContent;
+	while (getline(fin, line)) {
+		if (line == client->username)
+			return "332";
+	}
+	fin.close();
+
+	path = ".\\database\\invite-request\\" + client->username + ".txt";
+	fin.open(path, std::ios_base::in);
+	bool isInvited = false;
+	while (getline(fin, line)) {
+		fileContent.push_back(line);
+		if (content == line.substr(0, line.find(" ")))
+			isInvited = true;
+	}
+	fin.close();
+	if (!isInvited)
+		return "331";
+
+	// sucess:
+	path = ".\\database\\invite-request\\" + client->username + ".txt";
+	ofstream fout;
+	fout.open(path, std::ios_base::out | std::ios_base::trunc);
+	for (auto it = fileContent.begin(); it != fileContent.end(); it++) {
+		string line = *it;
+		if (line.find(content) != 0)
+			fout << line << endl;
+	}
+	fout.close();
+
+	return "333 " + content + " " + groups.at(groupId);
+
+}
+
+
+
 string handleListGroupRequest(LPPER_HANDLE_DATA client) {
+	if (client->status == 0)
+		return string(ACCOUNT_NOT_LOGGED_IN);
+
 	string path = ".\\database\\joined-group-by-username\\" + client->username + ".txt";
 	ifstream file(path);
 	string line;
@@ -298,7 +492,7 @@ string handleListGroupRequest(LPPER_HANDLE_DATA client) {
 		cerr << "Could not open file " << path << endl;
 		return string(LIST_GROUP_SUCCESS) + "/";
 	}
-	vector<pair<int, string>> joinedGroupPerUsername;
+
 	string responseBody = string(LIST_GROUP_SUCCESS) + " ";
 
 	while (getline(file, line)) {
@@ -314,7 +508,74 @@ string handleListGroupRequest(LPPER_HANDLE_DATA client) {
 
 
 
+string handleLeaveGroup(string content, LPPER_HANDLE_DATA client) {
+	if (client->status == 0)
+		return string(ACCOUNT_NOT_LOGGED_IN);
+
+	int groupId = atoi(content.c_str());
+	cout << groupId;
+
+	if (groups.find(groupId) == groups.end())
+		return "312";
+
+	vector<string> contentFile1, contentFile2;
+
+	string path = ".\\database\\group-members\\group" + to_string(groupId) + ".txt";
+	string line;
+	ifstream fin;
+	fin.open(path, std::ios_base::in);
+	if (!fin.is_open()) {
+		cerr << "Could not open file " << path << endl;
+		return "999"; // this should be another code
+	}
+
+	bool isSrcInGroup = false; // check if sender is in group
+	while (getline(fin, line)) {
+		contentFile1.push_back(line);
+		if (line.find(client->username) != string::npos) {
+			isSrcInGroup = true;
+		}
+	}
+	fin.close();
+
+	path = ".\\database\\joined-group-by-username\\" + client->username + ".txt";
+	fin.open(path, std::ios_base::in);
+	while (getline(fin, line))
+		contentFile2.push_back(line);
+	fin.close();
+
+
+	if (!isSrcInGroup)
+		return "341"; // sender not in group so cannot leave this group
+
+	// successfully leave group
+	path = ".\\database\\group-members\\group" + to_string(groupId) + ".txt";
+	ofstream fout;
+	fout.open(path, std::ios_base::out | std::ios_base::trunc);
+	for (auto it = contentFile1.begin(); it != contentFile1.end(); it++)
+		if (*it != client->username)
+			fout << *it << endl;
+	fout.close();
+
+	path = ".\\database\\joined-group-by-username\\" + client->username + ".txt";
+	fout.open(path, std::ios_base::out | std::ios_base::trunc);
+	for (auto it = contentFile2.begin(); it != contentFile2.end(); it++)
+		if (*it != content)
+			fout << *it << endl;
+	fout.close();
+	return "350";
+}
+
+
+
+
+/// ###### FILTER REQUEST AND NAVIGATION TO SUITABLE FUNCTION ##################
+
+
 string outputResponseFrom(string request, LPPER_HANDLE_DATA client) {
+
+	/// PART 1
+
 	// LOGIN
 	if (request.find(LOGIN_REQ) != string::npos && request.find(LOGIN_REQ) == 0 
 		&& request.find(" ") == strlen(LOGIN_REQ)) {
@@ -342,16 +603,49 @@ string outputResponseFrom(string request, LPPER_HANDLE_DATA client) {
 		return handleCreateGroupRequest(request, client);
 	}
 
+
+	/// PART 3
+
 	// INVITE TO NEW GROUP: INVITE username groupId (if not => bad request)
 	if (request.find(INVITE_REQ) != string::npos && request.find(INVITE_REQ) == 0
-		&& request.find(" ") == strlen(INVITE_REQ) && request.substr(request.find(" ") + 1).find(" ") != string::npos) {
+		&& request.find(" ") == strlen(INVITE_REQ) ) {
 		request = request.substr(strlen(INVITE_REQ) + 1);
-		return handleInviteRequest(request, client);
+		if (request.find(" ") != string::npos)
+			return handleInviteRequest(request, client);
 	}
 
+
+	// GET INVITATION
+	if (request.find(GET_INVITATION_REQ) != string::npos && request.find(GET_INVITATION_REQ) == 0) {
+		return handleGetInvitation(client);
+	}
+
+
+	// ACCEPT REQ
+	if (request.find(ACCEPT_REQ) != string::npos && request.find(ACCEPT_REQ) == 0
+		&& request.find(" ") == strlen(ACCEPT_REQ)) {
+		request = request.substr(strlen(ACCEPT_REQ) + 1);
+		return handleAcceptInvitation(request, client);
+	}
+
+	// DENY REQ
+	if (request.find(DENY_REQ) != string::npos && request.find(DENY_REQ) == 0
+		&& request.find(" ") == strlen(DENY_REQ)) {
+		request = request.substr(strlen(DENY_REQ) + 1);
+		return handleDenyInvitation(request, client);
+	}
+
+
 	// LIST JOINED GROUP of client
-	if (request.find(LIST_JOINED_GROUP) != string::npos && request.find(LIST_JOINED_GROUP) == 0) {
+	if (request.find(LIST_JOINED_GROUP_REQ) != string::npos && request.find(LIST_JOINED_GROUP_REQ) == 0) {
 		return handleListGroupRequest(client);
+	}
+
+	// LEAVE GROUP
+	if (request.find(LEAVE_GROUP_REQ) != string::npos && request.find(LEAVE_GROUP_REQ) == 0
+		&& request.find(" ") == strlen(LEAVE_GROUP_REQ)) {
+		request = request.substr(strlen(LEAVE_GROUP_REQ) + 1);
+		return handleLeaveGroup(request, client);
 	}
 
 
@@ -383,6 +677,7 @@ int main(int argc, CHAR* argv[])
 	// Step 0: read file account.txt
 	readAccountDb();
 	readGroupDb();
+	readUniqueGroupId();
 
 
 	// Step 1: Init Winsock
@@ -527,7 +822,9 @@ unsigned __stdcall serverWorkerThread(LPVOID iocp)
 	while (TRUE) {
 		if (GetQueuedCompletionStatus(lpIocp->completionPort, &transferredBytes,
 			(LPDWORD)&perHandleData, (LPOVERLAPPED *)&perIoData, INFINITE) == 0) {
-			printf("GetQueuedCompletionStatus() failed with error %d\n", GetLastError());
+			//printf("GetQueuedCompletionStatus() failed with error %d\n", GetLastError());
+			cout << "Client disconnect!" << endl;
+			handleLogoutRequest(perHandleData);
 			return 0;
 		}
 		// Check to see if an error has occurred on the socket and if so
@@ -640,8 +937,6 @@ unsigned __stdcall serverWorkerThread(LPVOID iocp)
 			DWORD bytesToReceive = 0, flag = 0;
 			WSARecv(perHandleData->socket, &(perIoData->dataBuff), 1, &bytesToReceive,
 				&flag, &(perIoData->overlapped), NULL);
-
-			
 
 			continue;
 		}

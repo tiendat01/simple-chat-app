@@ -1,9 +1,10 @@
-﻿Build started 7/23/2022 5:18:17 PM.
+﻿Build started 7/24/2022 9:11:43 AM.
      1>Project "E:\network-programming\Chat-App-BTL-network-programming\ChatApp\ChatClient\ChatClient.vcxproj" on node 3 (Build target(s)).
      1>ClCompile:
          C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"Debug\\" /Fd"Debug\vc140.pdb" /Gd /TP /analyze- /errorReport:prompt Client.cpp
          Client.cpp
-     1>e:\network-programming\chat-app-btl-network-programming\chatapp\chatclient\client.cpp(500): warning C4018: '<': signed/unsigned mismatch
+     1>e:\network-programming\chat-app-btl-network-programming\chatapp\chatclient\client.cpp(557): warning C4018: '<': signed/unsigned mismatch
+     1>e:\network-programming\chat-app-btl-network-programming\chatapp\chatclient\client.cpp(620): warning C4018: '<': signed/unsigned mismatch
        Link:
          C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"E:\network-programming\Chat-App-BTL-network-programming\ChatApp\Debug\ChatClient.exe" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /Debug /PDB:"E:\network-programming\Chat-App-BTL-network-programming\ChatApp\Debug\ChatClient.pdb" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"E:\network-programming\Chat-App-BTL-network-programming\ChatApp\Debug\ChatClient.lib" /MACHINE:X86 Debug\Client.obj
          Debug\Source.obj
@@ -12,4 +13,4 @@
 
 Build succeeded.
 
-Time Elapsed 00:00:02.77
+Time Elapsed 00:00:02.97
