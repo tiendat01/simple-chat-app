@@ -214,7 +214,6 @@ string handleLoginRequest(string content, LPPER_HANDLE_DATA client) {
 
 }
 
-
 string handleSignupRequest(string content) {
 	string username = content.substr(0, content.find(" "));
 	string password = content.substr(content.find(" ") + 1);
@@ -1186,9 +1185,6 @@ unsigned __stdcall serverWorkerThread(LPVOID iocp)
 						//}
 					}
 				}
-
-					
-
 
 
 

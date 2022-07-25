@@ -1,10 +1,3 @@
-giangtdk: hahahah
-linhvd: huhuhuhlinhvd: 
-datnt: okeokeoke
-linhvd: chao giang
-linhvd: chao lan 1
-linhvd: linh chao dat
-linhvd: linh chao giang
-linhvd: oke luon
-datnt: chiu roi day
-linhvd: abcdef
+datnt: hello
+linhvd: alo
+giangtdk: good bye

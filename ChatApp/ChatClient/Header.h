@@ -4,6 +4,8 @@
 
 #define BUFF_SIZE 2048
 #define ENDING_DELIMITER "\r\n"
+#define DELIMITER " "
+
 
 
 // eg:
@@ -26,8 +28,7 @@ enum SCREEN
 	INBOX_SCREEN,
 	GROUP_SCREEN,
 	ONE_GROUP_SCREEN,
-	GROUP_CHAT_SCREEN,
-	LIST_MESSAGE_SCREEN
+	GROUP_CHAT_SCREEN
 };
 
 /**
@@ -75,5 +76,3 @@ void navigateScreen(SCREEN screen);
 void showOneGroupMenu(const char* groupDisplayName);
 
 
-
-void showGroupChatMenu(const char* groupDisplayName);

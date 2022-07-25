@@ -75,12 +75,3 @@ void showOneGroupMenu(const char* groupDisplayName) {
 	
 }
 
-
-// groupChatBox
-void showGroupChatMenu(const char* groupDisplayName) {
-	printf("\n\n ------------------ %s -----------------------\n", groupDisplayName);
-	printf("Choose option: Press keyboard a number:\n");
-	printf("0. Back\n");
-	printf("1. Send a message to group %s\n", groupDisplayName);
-	printf("2. Show group chat box\n");
-}
