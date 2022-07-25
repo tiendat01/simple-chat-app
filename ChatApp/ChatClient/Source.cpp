@@ -50,44 +50,37 @@ void showInboxMenu() {
 
 
 void showGroupMenu() {
+	// list of group ...
+
 	printf("\n\n-------------- GROUP MENU -----------------\n");
 	printf("Choose option: Press keyboard a number:\n");
 	printf("0. Back\n");
 	printf("1. Create new group chat\n");
 	printf("2. Invite user to your joined group\n");
 	printf("3. Accept/Deny available invitation to join a group\n");
-	printf("4. Chat in group by group id\n"); // navigate to CHAT GROUP MENU
+	printf("4. Choose a group by groupId\n"); // navigate to a specific groupId
 
 }
 
-void showChatGroupMenu() {
-	// list of group ...
+void showOneGroupMenu(const char* groupDisplayName) {
 
 	// choose group by id ...
 
-	printf("\n\n-------------- CHAT GROUP MENU -----------------\n");
+	printf("\n\n-------------- %s -----------------\n", groupDisplayName);
 	printf("Choose option: Press keyboard a number:\n");
 	printf("0. Back\n");
-	printf("1. List online members in this group\n");
-	printf("2. Leave this group chat\n");
-	printf("3. Go to group chat box\n");
+	printf("1. List all members in this group\n");
+	printf("2. Leave this group\n");
+	printf("3. Go to group chat menu of this group\n");
 	
 }
 
-void showGroupChatBox(const char* groupDisplayName) {
+
+// groupChatBox
+void showGroupChatMenu(const char* groupDisplayName) {
 	printf("\n\n ------------------ %s -----------------------\n", groupDisplayName);
 	printf("Choose option: Press keyboard a number:\n");
 	printf("0. Back\n");
-	printf("1. Messaging\n");
+	printf("1. Send a message to group %s\n", groupDisplayName);
 	printf("2. Show group chat box\n");
-}
-
-// inbox
-void stopConversationDialog() {
-	printf("\n\n-------------- CONVERSATION BOX -----------------\n");
-	printf("Do you want to stop the conversation ?\n");
-	printf("Choose option: Press keyboard a number:\n");
-	printf("0. Cancel\n");
-	printf("1. Back to List of your online friends\n");
-	printf("2. Stop (block) the conversation\n");
 }

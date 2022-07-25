@@ -25,8 +25,8 @@ enum SCREEN
 	MAIN_SCREEN,
 	INBOX_SCREEN,
 	GROUP_SCREEN,
-	CHAT_GROUP_SCREEN,
-	CHAT_GROUP_BOX_SCREEN,
+	ONE_GROUP_SCREEN,
+	GROUP_CHAT_SCREEN,
 	LIST_MESSAGE_SCREEN
 };
 
@@ -67,22 +67,13 @@ void showGroupMenu();
 
 
 
-void showChatGroupMenu();
-
-
-
-void stopConversationDialog();
-
-
 
 void navigateScreen(SCREEN screen);
 
 
 
-
-void showListMessageGroupChat();
-
+void showOneGroupMenu(const char* groupDisplayName);
 
 
 
-void showGroupChatBox(const char* groupDisplayName);
+void showGroupChatMenu(const char* groupDisplayName);

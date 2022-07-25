@@ -42,14 +42,14 @@ string receiveBuffer;
 SCREEN curScreen = LOGIN_SCREEN;
 
 map<int, string> joinedGroupList; // for showing only in LISTGROUP req. Don't use 
-
-
-vector<string> onlineUsersList;
-vector<int> joinedIDGroupList;
-int group = -1;
-int codescreen = 0;
-string listmessage;
+int globalGroupId = -1;
+string groupHistory;
 string usernameLogin;
+
+
+//vector<string> onlineUsersList;
+//int codescreen = 0;
+//string listmessage;
 
 vector<string> simple_tokenizer(string s)
 {
@@ -100,7 +100,11 @@ int getChoice(int maxChoice) {
 }
 
 
-// SEND REQUEST
+
+
+
+/// ################# SEND REQUEST SERVER  #################
+
 
 
 /// PART 1: LOG IN, SIGN UP, LOG OUT
@@ -212,12 +216,11 @@ void chatWith(string username) {
 /// PART 3: GROUP CHAT
 
 
-// send request to show JoinedGroupList
 void showListJoinedGroup() {
 
 	string req = LIST_JOINED_GROUP_REQ + string(ENDING_DELIMITER);
 	EnterCriticalSection(&criticalSection);
-	int ret = Send(clientSock, req, req.length(), 0);
+	int ret = Send(clientSock, req, req.length(), 0); // return "360"
 	LeaveCriticalSection(&criticalSection);
 
 }
@@ -290,7 +293,7 @@ void responseInvitation() {
 
 void showListMemberGroup() {
 
-	string req = string(LIST_MEMBERS_GROUP) + string(DELIMITER) + to_string(group) + ENDING_DELIMITER;
+	string req = string(LIST_MEMBERS_GROUP) + string(DELIMITER) + to_string(globalGroupId) + ENDING_DELIMITER;
 	int ret = Send(clientSock, req, req.length(), 0);
 }
 
@@ -303,47 +306,19 @@ void leaveGroup(int groupId) {
 }
 
 
-void chatGroup1() {
-	int messageLen = 0;
-	bool check = true;
-	do {
-		system("cls");
-		showListMessageGroupChat();
-		//Sleep(500);
-		//cout << listmessage << endl;
-		Sleep(1000);
-		//cout << "Enter: ";
-		char buff[BUFF_SIZE];
-		memset(buff, 0, BUFF_SIZE);
-		fflush(stdin);
-		gets_s(buff, BUFF_SIZE);
-		messageLen = strlen(buff);
-		if (strlen(buff)>0 && buff[0] != '1') {
-			string req = "MESSAGE" + string(DELIMITER) + to_string(group) + string(DELIMITER) + string(buff) + ENDING_DELIMITER;
-			int ret = Send(clientSock, req, req.length(), 0);
-		}
-		else {
-			if (buff[0] == '1') {
-				check = false;
-			}
-		}
-	} while (check);
-	codescreen = 0;
-}
 
-
-
-
-
-void showListMessageGroupChat() {
-	string req = LOAD_MESSAGE + string(DELIMITER) + to_string(group) + ENDING_DELIMITER;
+void showGroupChatBox() {
+	string req = LOAD_MESSAGE + string(DELIMITER) + to_string(globalGroupId) + ENDING_DELIMITER;
 	int ret = Send(clientSock, req, req.length(), 0);
 }
 
 
-void chatInGroup() {
+
+
+void chatInGroupBox() {
+
 	string msg;
-	cout << "enter:...\n";
+	cout << "You: ";
 	int messageLen = 0;
 	do {
 		fflush(stdin);
@@ -352,10 +327,11 @@ void chatInGroup() {
 		gets_s(buff, BUFF_SIZE);
 		messageLen = strlen(buff);
 		if (messageLen > 0) {
-			string req = "MESSAGE" + string(DELIMITER) + to_string(group) + string(DELIMITER) + string(buff) + ENDING_DELIMITER;
+			string req = "MESSAGE" + string(DELIMITER) + to_string(globalGroupId) + string(DELIMITER) + string(buff) + ENDING_DELIMITER;
 			int ret = Send(clientSock, req, req.length(), 0);
 		}
 	}while(!messageLen);
+
 }
 
 
@@ -363,7 +339,7 @@ void chatInGroup() {
 /// ######### HANDLE ALL MENU GUI ###############
 
 
-// oke
+
 void handleLoginMenu() {
 	int choice = getChoice(2);
 	switch (choice) {
@@ -411,19 +387,6 @@ void handleMainMenu() {
 }
 
 
-void handleInboxMenu() {
-
-	int choice = getChoice(1);
-	switch (choice) {
-	// back to Main Menu
-	case 0:
-		break;
-	
-	// go to chat box in while loop
-	case 1:
-		break;
-	}
-}
 
 
 void handleGroupMenu() {
@@ -436,7 +399,7 @@ void handleGroupMenu() {
 		break;
 		// create new group chat
 	case 1:
-		createNewGroup(); // oke
+		createNewGroup(); 
 		break;
 		// invite new person to your group
 	case 2:
@@ -446,9 +409,9 @@ void handleGroupMenu() {
 	case 3:
 		getInvitation();
 		break;
-		// chat in group by groupid
+		// choose a group by groupid
 	case 4:
-		curScreen = CHAT_GROUP_SCREEN;
+		curScreen = ONE_GROUP_SCREEN;
 		showListJoinedGroup();
 		break;
 	}
@@ -458,7 +421,7 @@ void handleGroupMenu() {
 
 
 
-void handleChatGroupMenu() {
+void handleOneGroupMenu() {
 	
 	int choice = getChoice(3);
 	switch (choice)
@@ -468,23 +431,25 @@ void handleChatGroupMenu() {
 		curScreen = GROUP_SCREEN;
 		navigateScreen(GROUP_SCREEN);
 		break;
-		// list  members in group
+		// list members in group
 	case 1:
 		showListMemberGroup();
 		break;
 		// leave group
 	case 2:
-		leaveGroup(group);
+		curScreen = ONE_GROUP_SCREEN;
+		leaveGroup(globalGroupId);
 		break;
 	case 3:
-		curScreen = CHAT_GROUP_BOX_SCREEN;
-		navigateScreen(CHAT_GROUP_BOX_SCREEN);
+		curScreen = GROUP_CHAT_SCREEN;
+		navigateScreen(GROUP_CHAT_SCREEN);
 		break;
 
 	default:
 		break;
 	}
 }
+
 
 
 void handleGroupChatBox() {
@@ -492,14 +457,14 @@ void handleGroupChatBox() {
 	switch (choice)
 	{
 	case 0:
-		curScreen = CHAT_GROUP_SCREEN;
-		navigateScreen(CHAT_GROUP_SCREEN);
+		curScreen = ONE_GROUP_SCREEN;
+		navigateScreen(ONE_GROUP_SCREEN);
 		break;
 	case 1:
-		chatInGroup();
+		chatInGroupBox();
 		break;
 	case 2:
-		navigateScreen(LIST_MESSAGE_SCREEN);
+		showGroupChatBox();
 		break;
 	default:
 		break;
@@ -508,8 +473,21 @@ void handleGroupChatBox() {
 
 
 
+void displayGroupChatBox() {
+	printf("\n\n-------------- %s --------------\n", joinedGroupList.at(globalGroupId).c_str());
+	printf("Press '1' to leave\n\n");
+	cout << groupHistory << endl;
+	string leave; cin >> leave;
+	if (leave == "1") {
+		navigateScreen(GROUP_CHAT_SCREEN);
+	}
 
-/// HANDLE RESPONSE FROM SERVER
+}
+
+
+
+
+/// ################# HANDLE RESPONSE FROM SERVER #################
 
 // need refactory and cut to Header.h
 void handleResponse(string msg) {
@@ -517,10 +495,11 @@ void handleResponse(string msg) {
 	//cout << "Receive from server: " + msg << endl;
 
 	// LOGIN
-	if (msg == "100") {
+	if (msg.find("100") == 0) {
 		cout << "\nLogin successfully\n";
 		curScreen = MAIN_SCREEN;
 		navigateScreen(MAIN_SCREEN);
+		usernameLogin = msg.substr(msg.find(" ") + 1);
 	}
 	// LOGIN + INVITE
 	else if (msg == "101") {
@@ -664,10 +643,7 @@ void handleResponse(string msg) {
 			}
 			responseInvitation();
 		}
-		
-
 	}
-
 
 	// ACCEPT invitation
 	else if (msg.find("330") == 0) {
@@ -705,6 +681,8 @@ void handleResponse(string msg) {
 
 
 
+
+
 	// LISTGROUP
 	else if (msg.find("360") == 0) {
 		string content = msg.substr(strlen("360") + 1);
@@ -730,7 +708,6 @@ void handleResponse(string msg) {
 			cout << "\nList of your joined group:\n";
 			for (auto it = joinedGroupList.begin(); it != joinedGroupList.end(); it++) {
 				cout << it->first << " " << it->second << endl;
-				joinedIDGroupList.push_back(it->first);
 			}
 
 		}
@@ -744,50 +721,59 @@ void handleResponse(string msg) {
 			curScreen = GROUP_SCREEN;
 
 		navigateScreen(curScreen);
-	
 	}
 
-
+	// LEAVE GROUP
 	else if (msg == "350") {
 		cout << "\nLeave group sucessfully\n";
 		showListJoinedGroup();
 	}
 	
-
+	// SHOW LIST OF MEMBERS IN GROUP
 	else if (msg.substr(0, 3) == "370") {
 		msg = msg.substr(msg.find(" ") + 1);
 		cout << msg << endl;
 
-		showChatGroupMenu();
-		handleChatGroupMenu();
+		showOneGroupMenu(joinedGroupList.at(globalGroupId).c_str());
+		handleOneGroupMenu();
 	}
 
 
-
+	// SHOW GROUP CHAT MESSSAGES
 	else if (msg.substr(0, 3) == "380") {
 		msg = msg.substr(msg.find(" ") + 1);
-		//listmessage = msg;
-		cout << msg << endl;
-		curScreen = CHAT_GROUP_BOX_SCREEN;
-		navigateScreen(CHAT_GROUP_BOX_SCREEN);
+		msg = msg.substr(msg.find(" ") + 1);
+		groupHistory = msg;
+		curScreen = LIST_MESSAGE_SCREEN;
+		navigateScreen(LIST_MESSAGE_SCREEN);
 	}
 
+
+	// SUCESS SEND TO GROUP
 	else if (msg.substr(0, 3) == "390") {
-		vector<string>response = simple_tokenizer(msg);
-		int groupIdmsg = atoi(response[1].c_str());
-		if (group == groupIdmsg) {
-			showListMessageGroupChat();
-		}
-		//cout << "send message successfully" << endl;
+		msg = msg.substr(msg.find(" ") + 1);
+		string groupId = msg.substr(0, msg.find(" "));
+		msg = msg.substr(msg.find(" ") + 1);
+		string username = msg.substr(0, msg.find(" "));
 
+		if (groupId == to_string(globalGroupId) && username == usernameLogin)
+			showGroupChatBox();
 	}
-	//else if (msg.substr(0, 3) == "350") {
-	//	cout << "leave group successfully" << endl;
-	//	group = -1;
-	//	codescreen = 0;
-	//	//handleMainMenu();
-	//}
-	// 
+
+
+	else if (msg.substr(0, 3) == "381") {
+		cout << "Server return " << msg << endl;
+		msg = msg.substr(msg.find(" ") + 1);
+		string groupId = msg.substr(0, msg.find(" "));
+		string newMessage = msg.substr(msg.find(" ") + 1);
+
+		cout << groupId << " " << curScreen;
+
+		if (groupId == to_string(globalGroupId) && curScreen == LIST_MESSAGE_SCREEN) {
+			cout << newMessage << endl;
+		}
+	}
+
 	// else if ...
 
 
@@ -813,28 +799,36 @@ void navigateScreen(SCREEN screen) {
 		handleMainMenu();
 		break;
 	case INBOX_SCREEN:
-		//showListOnlineUsers();
-		showInboxMenu();
-		handleInboxMenu();
+
+		// GIANG UPDATE THIS 
+
 		break;
 	case GROUP_SCREEN:
 		showGroupMenu();
 		handleGroupMenu();
 		break;
-	case CHAT_GROUP_SCREEN:
+
+
+	case ONE_GROUP_SCREEN:
+		repeat:
 		int targetGroupId;
 		cout << "Choose your target groupId: "; cin >> targetGroupId;
-		group = targetGroupId;
+		if (joinedGroupList.find(targetGroupId) == joinedGroupList.end())
+			goto repeat;
 
-		showChatGroupMenu();
-		handleChatGroupMenu();
+		globalGroupId = targetGroupId;
+
+		showOneGroupMenu(joinedGroupList.at(globalGroupId).c_str());
+		handleOneGroupMenu();
 		break;
-	case CHAT_GROUP_BOX_SCREEN:
-		showGroupChatBox(joinedGroupList.at(group).c_str());
+
+	case GROUP_CHAT_SCREEN:
+		showGroupChatMenu(joinedGroupList.at(globalGroupId).c_str());
 		handleGroupChatBox();
 		break;
+
 	case LIST_MESSAGE_SCREEN:
-		showListMessageGroupChat();
+		displayGroupChatBox();
 		break;
 	default:
 		break;

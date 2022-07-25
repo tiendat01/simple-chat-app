@@ -65,8 +65,6 @@ using namespace std;
 #define LOAD_MESSAGE  "LOADMESSAGE"
 #define MESSAGE "MESSAGE"
 
-
-
 #define GET_INVITATION_SUCESS "320"
 
 #define BAD_REQUEST "999"
@@ -102,27 +100,13 @@ typedef struct {
 
 map<string, tuple<string, SOCKET, int>> users;
 map<int, string> groups;
-//map<string, map<int, string>> groupsPerUsername;
 
 //linh
-map<string, vector<int>>groupPerUser;
-//map<int, vector<string>>listMembersPerGroup;
-map<int, vector<string>>listMessageInGroup;
+//map<string, vector<int>>groupPerUser;
+//map<int, vector<string>>listMessageInGroup;
 
 
 int autoIncrementGroupId = 1; // groupId start from 1 and auto increment
-
-
-vector<string> simple_tokenizer(string s)
-{
-	stringstream ss(s);
-	string word;
-	vector<string>sp;
-	while (ss >> word) {
-		sp.push_back(word);
-	}
-	return sp;
-}
 
 
 //// khai bao mang cho nhieu client
@@ -179,6 +163,19 @@ void readGroupDb() {
 
 
 
+vector<string> simple_tokenizer(string s)
+{
+	stringstream ss(s);
+	string word;
+	vector<string>sp;
+	while (ss >> word) {
+		sp.push_back(word);
+	}
+	return sp;
+}
+
+
+
 /// ########### PART 1: LOG IN, SIGN UP, LOG OUT ###########
 
 string handleLoginRequest(string content, LPPER_HANDLE_DATA client) {
@@ -213,7 +210,7 @@ string handleLoginRequest(string content, LPPER_HANDLE_DATA client) {
 		it->second = make_tuple(password, client->socket, client->status);
 	}
 
-	return string(LOGIN_SUCCESS);
+	return string(LOGIN_SUCCESS) + " " + username;
 
 }
 
@@ -322,6 +319,7 @@ string handleCreateGroupRequest(string request, LPPER_HANDLE_DATA client) {
 
 }
 
+
 string handleInviteRequest(string content, LPPER_HANDLE_DATA client) {
 	if (client->status == 0)
 		return string(ACCOUNT_NOT_LOGGED_IN);
@@ -404,7 +402,6 @@ string handleGetInvitation(LPPER_HANDLE_DATA client) {
 
 	return respondBody;
 }
-
 
 
 string handleAcceptInvitation(string content, LPPER_HANDLE_DATA client) {
@@ -506,71 +503,6 @@ string handleDenyInvitation(string content, LPPER_HANDLE_DATA client) {
 
 
 //linh
-/*string handleLeaveGroupRequest(string content, LPPER_HANDLE_DATA client) {
-	for (int i = 0; i < content.length(); i++) {
-		if (content[i] < '0' || content[i] > '9') {
-			return "999";
-		}
-	}
-	int idGroupUser = atoi(content.c_str());
-	string username = client->username;
-	if (client->status == 0) {
-		return "201";
-	}
-	vector<int>userGroup = groupPerUser[username];
-	std::vector<int>::iterator it;
-	//std::vector<string>::iterator it1;
-
-	auto i1 = listMembersPerGroup.find(idGroupUser);
-	if (i1 == listMembersPerGroup.end()) {
-		return "312";
-	}
-	it = std::find(groupPerUser[username].begin(), groupPerUser[username].end(), idGroupUser);
-	if (it != groupPerUser[username].end()) {
-		groupPerUser[username].erase(it);
-
-		//userGroup.erase(it);
-		//it1 = std::find(group[idGroupUser].begin(), group[idGroupUser].end(), username);
-		//group[idGroupUser].erase(it1);
-		for (int i = 0; i < listMembersPerGroup[idGroupUser].size(); i++) {
-			if (username == listMembersPerGroup[idGroupUser][i]) {
-				listMembersPerGroup[idGroupUser].erase(listMembersPerGroup[idGroupUser].begin() + i);
-				break;
-			}
-		}
-
-		return "350";
-	}
-	else {
-		return "341";
-	}
-
-
-}*/
-//linh
-/*string handleListGroupRequest(string content, LPPER_HANDLE_DATA client) {
-
-	if (content.length() != string(LIST_GROUP).length()) {
-		return "999";
-	}
-	if (client->status == 0) {
-		return "201";
-	}
-	string rep = "360 ";
-
-	string username = client->username;
-	vector<int>userGroup = groupPerUser[username];
-	for (int i = 0; i < groupPerUser[username].size(); i++) {
-		rep += to_string(groupPerUser[username][i]);
-		rep += "/";
-		rep += groups[groupPerUser[username][i]];
-		rep += " ";
-	}
-	return rep;
-
-}*/
-//linh
-
 string handleListMemberGroupRequest(string content, LPPER_HANDLE_DATA client) {
 	for (int i = 0; i < content.length(); i++) {
 		if (content[i] < '0' || content[i] > '9') {
@@ -618,6 +550,8 @@ string handleListMemberGroupRequest(string content, LPPER_HANDLE_DATA client) {
 
 }
 
+
+
 //linh
 string handleLoadMessageRequest(string content, LPPER_HANDLE_DATA client) {
 	for (int i = 0; i < content.length(); i++) {
@@ -650,7 +584,6 @@ string handleLoadMessageRequest(string content, LPPER_HANDLE_DATA client) {
 	}
 	fin.close();
 
-	string responseBody = "380 " + to_string(idGroupUser);
 	bool isInGroup = false;
 
 	for (auto it = listMembersPerGroup.begin(); it != listMembersPerGroup.end(); it++) {
@@ -662,23 +595,42 @@ string handleLoadMessageRequest(string content, LPPER_HANDLE_DATA client) {
 
 	if (!isInGroup)
 		return "341";
-	cout << responseBody << endl;
+
+	// if success
+	string responseBody = "380 " + to_string(idGroupUser) + " ";
+
+	string history;
+	path = ".\\database\\group-messages\\group" + content + ".txt";
+	fin.open(path, std::ios_base::in);
+	if (!fin.is_open()) {
+		cout << "Cannot open file " << path << endl;
+		return string(BAD_REQUEST);
+	}
+	while (getline(fin, line)) {
+		history += line + "\n";
+	}
+	fin.close();
+	responseBody.append(history);
+
 	return responseBody;
 
 
 }
 
+
+
 //linh
-string handleMessageRequest(string content, LPPER_HANDLE_DATA client) {
-	string sGroup = content.substr(0, content.find(" "));
+string handleSendMessageRequest(string content, LPPER_HANDLE_DATA client) {
+	string sGroup = content.substr(0, content.find(" ")); // sGroup is groupId to chat in string
 
 	for (int i = 0; i < sGroup.length(); i++) {
 		if (sGroup[i] < '0' || sGroup[i] > '9') {
 			return "999";
 		}
 	}
-	string msg = content.substr(content.find(" ") + 1);
+
 	int idGroupUser = atoi(sGroup.c_str());
+	string msg = content.substr(content.find(" ") + 1); // get message from user to chat in group
 	string username = client->username;
 	if (client->status == 0) {
 		return "201";
@@ -725,6 +677,7 @@ string handleMessageRequest(string content, LPPER_HANDLE_DATA client) {
 	}
 	fout << oneMsg << endl;
 	fout.close();
+	responseBody += " " + oneMsg;
 	return responseBody;
 }
 
@@ -818,6 +771,8 @@ string handleLeaveGroup(string content, LPPER_HANDLE_DATA client) {
 
 
 
+
+
 /// ###### FILTER REQUEST AND NAVIGATION TO SUITABLE FUNCTION ##################
 
 
@@ -898,27 +853,27 @@ string outputResponseFrom(string request, LPPER_HANDLE_DATA client) {
 	}
 
 
-	//linh
-	//if (request.find(ACCOUNT_LEAVE_GROUP) == 0) {//linh
-	//	request = request.substr(string(ACCOUNT_LEAVE_GROUP).length() + 1);
-	//	return handleLeaveGroupRequest(request, client);
-	//}
-	//if (request.find(LIST_GROUP) == 0) {//linh
-	//	request = string(LIST_GROUP);
-	//	return handleListGroupRequest(request, client);
-	//}
+	// LIST MEMBERS IN A GROUP
 	if (request.find(LIST_MEMBERS_GROUP) == 0) {//linh
 		request = request.substr(string(LIST_MEMBERS_GROUP).length() + 1);
 		return handleListMemberGroupRequest(request, client);
 	}
+
+
+	// RETURN ALL HISTORY CHAT IN GROUP
 	if (request.find(LOAD_MESSAGE) == 0) {//linh
 		request = request.substr(string(LOAD_MESSAGE).length() + 1);
 		return handleLoadMessageRequest(request, client);
 	}
+
+
+	// HANDLE WHEN AN USER SEND NEW MESSAGE
 	if (request.find(MESSAGE) == 0) {//linh
 		request = request.substr(string(MESSAGE).length() + 1);
-		return handleMessageRequest(request, client);
+		return handleSendMessageRequest(request, client);
 	}
+
+
 
 
 	return string(BAD_REQUEST);
@@ -1123,6 +1078,7 @@ unsigned __stdcall serverWorkerThread(LPVOID iocp)
 			string receivceBuffer = string(perIoData->buffer);
 			receivceBuffer = prevBuff + receivceBuffer;
 			prevBuff.clear();
+
 			// stream handle
 			while ((found = receivceBuffer.find("\r\n")) != string::npos) {
 				if (receivceBuffer.find("\r\n") > 0) {
@@ -1139,78 +1095,52 @@ unsigned __stdcall serverWorkerThread(LPVOID iocp)
 			// handle request
 			while (!requestQueue.empty()) {
 
-				cout << "handle request from client: " << requestQueue.front() << endl;
+				cout << "Handle request from client: " << requestQueue.front() << endl;
 
 
 				// process
 				string response = outputResponseFrom(requestQueue.front(), perHandleData);
 				
-				response += ENDING_DELIMITER;
+				response += ENDING_DELIMITER; // 390 1 datnt dlfjsldffsal fsdjf slfalsd f\r\n
 
 				// send response to one client
-				string flag1 = response.substr(0, 3);
-				// send response to one client
-				if (flag1 != "380") {
-					LPPER_IO_OPERATION_DATA perIoDataToSend = new PER_IO_OPERATION_DATA();
-					ZeroMemory(&(perIoDataToSend->overlapped), sizeof(OVERLAPPED));
-					memset(perIoDataToSend, 0, sizeof(PER_IO_OPERATION_DATA));
-					memcpy(perIoDataToSend->buffer, response.c_str(), response.length());
-					perIoDataToSend->dataBuff.buf = perIoDataToSend->buffer;
-					perIoDataToSend->dataBuff.len = response.length();
-					perIoDataToSend->operation = SEND;
+				LPPER_IO_OPERATION_DATA perIoDataToSend = new PER_IO_OPERATION_DATA();
+				ZeroMemory(&(perIoDataToSend->overlapped), sizeof(OVERLAPPED));
+				memset(perIoDataToSend, 0, sizeof(PER_IO_OPERATION_DATA));
+				memcpy(perIoDataToSend->buffer, response.c_str(), response.length());
+				perIoDataToSend->dataBuff.buf = perIoDataToSend->buffer;
+				perIoDataToSend->dataBuff.len = response.length();
+				perIoDataToSend->operation = SEND;
 
-					DWORD bytesToSend = 0;
+				DWORD bytesToSend = 0;
 
-					if (WSASend(perHandleData->socket, &(perIoDataToSend->dataBuff), 1,
-						&bytesToSend, 0, &perIoDataToSend->overlapped, NULL) == SOCKET_ERROR && WSAGetLastError() != WSA_IO_PENDING)
-						if (perHandleData != NULL) {
-							closesocket(perHandleData->socket);
-							lpIocp->clientSockList.remove(perHandleData->socket);
-						}
-				}
-				else {
-					vector<string>p = simple_tokenizer(response);
-					int gr = atoi(p[1].c_str());
-
-					string path = ".\\database\\group-messages\\group" + p[1] + ".txt";
-					ifstream fin;
-					fin.open(path, std::ios_base::in);
-					if (!fin.is_open()) {
-						cout << "Cannot open file " << path << endl;
-					}
-					string msg = "380 ";
-					string line;
-					while (getline(fin, line)) {
-
-						msg += line + "\n";
-						
+				if (WSASend(perHandleData->socket, &(perIoDataToSend->dataBuff), 1,
+					&bytesToSend, 0, &perIoDataToSend->overlapped, NULL) == SOCKET_ERROR && WSAGetLastError() != WSA_IO_PENDING)
+					if (perHandleData != NULL) {
+						closesocket(perHandleData->socket);
+						lpIocp->clientSockList.remove(perHandleData->socket);
 					}
 
-					msg += ENDING_DELIMITER;
 
-					LPPER_IO_OPERATION_DATA perIoDataToSend = new PER_IO_OPERATION_DATA();
-					ZeroMemory(&(perIoDataToSend->overlapped), sizeof(OVERLAPPED));
-					memset(perIoDataToSend, 0, sizeof(PER_IO_OPERATION_DATA));
-					memcpy(perIoDataToSend->buffer, msg.c_str(), msg.length());
-					perIoDataToSend->dataBuff.buf = perIoDataToSend->buffer;
-					perIoDataToSend->dataBuff.len = msg.length();
-					perIoDataToSend->operation = SEND;
+				string flag = response.substr(0, 3);
+				//cout << response << endl;
+				
 
-					DWORD bytesToSend = 0;
-
-					if (WSASend(perHandleData->socket, &(perIoDataToSend->dataBuff), 1,
-						&bytesToSend, 0, &perIoDataToSend->overlapped, NULL) == SOCKET_ERROR && WSAGetLastError() != WSA_IO_PENDING)
-						if (perHandleData != NULL) {
-							closesocket(perHandleData->socket);
-							lpIocp->clientSockList.remove(perHandleData->socket);
-						}
-
-				}
-
-				/*if (flag1 == "390") {
+				if (flag == "390") {
 					//// group chat broadcast 
 					vector<string>p = simple_tokenizer(response);
+					for (auto it = p.begin(); it != p.end(); it++)
+						cout << *it << endl;
+					cout << "username = " << perHandleData->username << endl;
 					int gr = atoi(p[1].c_str());
+
+					string newResponse = "381 " + p[1] + " ";
+					response = response.substr(response.find(" ") + 1);
+					response = response.substr(response.find(" ") + 1);
+					response = response.substr(response.find(" ") + 1);
+
+					newResponse += response;
+
 
 					string path = ".\\database\\group-members\\group" + to_string(gr) + ".txt";
 					ifstream fin;
@@ -1227,16 +1157,17 @@ unsigned __stdcall serverWorkerThread(LPVOID iocp)
 					}
 					fin.close();
 
+					//cout << "new response: " << newResponse << endl;
 
 					for (int it1 = 0; it1 < listMembersPerGroup.size(); it1++) {
 						auto info = users.at(listMembersPerGroup[it1]);
-						if (get<2>(info) == 1) {
+						//if (get<2>(info) == 1 && perHandleData->username != p[2]) {
 							LPPER_IO_OPERATION_DATA perIoDataToSend = new PER_IO_OPERATION_DATA();
 							ZeroMemory(&(perIoDataToSend->overlapped), sizeof(OVERLAPPED));
 							memset(perIoDataToSend, 0, sizeof(PER_IO_OPERATION_DATA));
-							memcpy(perIoDataToSend->buffer, response.c_str(), response.length());
+							memcpy(perIoDataToSend->buffer, newResponse.c_str(), newResponse.length());
 							perIoDataToSend->dataBuff.buf = perIoDataToSend->buffer;
-							perIoDataToSend->dataBuff.len = response.length();
+							perIoDataToSend->dataBuff.len = newResponse.length();
 							perIoDataToSend->operation = SEND;
 
 							DWORD bytesToSend = 0;
@@ -1246,14 +1177,19 @@ unsigned __stdcall serverWorkerThread(LPVOID iocp)
 								if (perHandleData != NULL) {
 									if (get<1>(info) != NULL) {
 										closesocket(get<1>(info));
+										lpIocp->clientSockList.remove(perHandleData->socket);
 										//get<1>(info) = lpIocp->clientSockList.erase(get<1>(info));
 									}
 								}
-								continue;
+								//continue;
 							}
-						}
+						//}
 					}
-				}*/
+				}
+
+					
+
+
 
 
 				requestQueue.pop();
