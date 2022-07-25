@@ -1128,9 +1128,9 @@ unsigned __stdcall serverWorkerThread(LPVOID iocp)
 				if (flag == "390") {
 					//// group chat broadcast 
 					vector<string>p = simple_tokenizer(response);
-					for (auto it = p.begin(); it != p.end(); it++)
+					/*for (auto it = p.begin(); it != p.end(); it++)
 						cout << *it << endl;
-					cout << "username = " << perHandleData->username << endl;
+					cout << "username = " << perHandleData->username << endl;*/
 					int gr = atoi(p[1].c_str());
 
 					string newResponse = "381 " + p[1] + " ";
@@ -1138,7 +1138,7 @@ unsigned __stdcall serverWorkerThread(LPVOID iocp)
 					response = response.substr(response.find(" ") + 1);
 					response = response.substr(response.find(" ") + 1);
 
-					newResponse += response;
+					newResponse += response; // "381 groupId content...\r\n"
 
 
 					string path = ".\\database\\group-members\\group" + to_string(gr) + ".txt";
@@ -1160,7 +1160,7 @@ unsigned __stdcall serverWorkerThread(LPVOID iocp)
 
 					for (int it1 = 0; it1 < listMembersPerGroup.size(); it1++) {
 						auto info = users.at(listMembersPerGroup[it1]);
-						//if (get<2>(info) == 1 && perHandleData->username != p[2]) {
+						if (get<2>(info) == 1 && perHandleData->username != p[2]) {
 							LPPER_IO_OPERATION_DATA perIoDataToSend = new PER_IO_OPERATION_DATA();
 							ZeroMemory(&(perIoDataToSend->overlapped), sizeof(OVERLAPPED));
 							memset(perIoDataToSend, 0, sizeof(PER_IO_OPERATION_DATA));
@@ -1182,7 +1182,7 @@ unsigned __stdcall serverWorkerThread(LPVOID iocp)
 								}
 								//continue;
 							}
-						//}
+						}
 					}
 				}
 

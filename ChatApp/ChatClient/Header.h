@@ -1,6 +1,7 @@
-#pragma once
+
 #include <WinSock2.h>
 #include <WS2tcpip.h>
+#include <string>
 
 #define BUFF_SIZE 2048
 #define ENDING_DELIMITER "\r\n"
@@ -74,5 +75,7 @@ void navigateScreen(SCREEN screen);
 
 
 void showOneGroupMenu(const char* groupDisplayName);
+
+
 
 

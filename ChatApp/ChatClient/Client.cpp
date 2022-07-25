@@ -46,7 +46,9 @@ int globalGroupId = -1;
 string groupHistory;
 string usernameLogin;
 
+bool isComing = false;
 
+void handleResponse(string msg);
 vector<string> simple_tokenizer(string s)
 {
 	stringstream ss(s);
@@ -306,6 +308,12 @@ void showGroupChatBox() {
 }
 
 
+void sendNewMsg(string msg) {
+	string req = MESSAGE + string(DELIMITER) + to_string(globalGroupId) + string(DELIMITER) + msg + ENDING_DELIMITER;
+	int ret = Send(clientSock, req, req.length(), 0);
+}
+
+
 
 
 
@@ -415,6 +423,7 @@ void handleOneGroupMenu() {
 		curScreen = ONE_GROUP_SCREEN;
 		leaveGroup(globalGroupId);
 		break;
+		// go to group chat box
 	case 3:
 		curScreen = GROUP_CHAT_SCREEN;
 		showGroupChatBox();
@@ -427,39 +436,67 @@ void handleOneGroupMenu() {
 
 
 void handleGroupChatBox() {
-
 	system("cls");
 	cout << groupHistory << endl;
 
+	//string msg;
+	//do
+	//{
+	//	//check if any input.
+	//	if (_kbhit()) {
+
+	//		//probable user started to type, block to read till the user press Enter.
+	//		cin.ignore();
+	//		std::getline(std::cin, msg);
+
+	//		sendNewMsg(msg);
+
+	//		char buff[BUFF_SIZE];
+	//		int ret = recv(clientSock, buff, BUFF_SIZE, 0);
+	//		if (ret == SOCKET_ERROR) {
+	//			printf("Error %d: Cannot receive data.\n", WSAGetLastError());
+	//			break;
+	//		}
+	//		else if (ret == 0) {
+	//			printf("Client disconnects.\n");
+	//			break;
+	//		}
+	//		else if (strlen(buff) > 0) {
+	//			buff[ret] = 0;
+
+	//			// xu ly truyen dong
+	//			// buff = "...\r\n" hoac "..." hoac "...\r\n..."
+	//			receiveBuffer += string(buff);
+
+	//			while (receiveBuffer.find("\r\n") != string::npos) {
+	//				size_t found = receiveBuffer.find("\r\n");
+	//				string message = receiveBuffer.substr(0, found); //message contains code received from server
+	//																 //std::cout << message; //display a message to user according to code received
+
+	//				handleResponse(message);
+
+	//				receiveBuffer = receiveBuffer.substr(found + 2); //cut the part of the received string that has been processed
+	//			}
+	//		}
+
+	//		/*system("cls");
+	//		cout << groupHistory << endl;*/
+	//	}
+
+	//	//check if Esc Pressed
+	//} while (GetAsyncKeyState(VK_ESCAPE) == 0);
+
+	bool isOut = false;
 	string msg;
-	do
-	{
-		//check if any input.
-		if (_kbhit()) {
-			//probable user started to type, block to read till the user press Enter.
-			std::getline(std::cin, msg);
+	//while (!isOut) {
+		cin.ignore(); getline(cin, msg);
 
-			//if success
-			if (std::cin.good()) {
-				//cout << "(sent)";
-			}
-			else {
-				//firstly, clear error flag 
-				std::cin.clear();
-				//ignore 
-				std::cin.ignore(10000, '\n');
+		/*if (msg[0] == '1')
+			break;*/
+		if (msg.length() > 0)
+			sendNewMsg(msg);
+	//}
 
-			}
-
-			// send to server and save to vector
-			// ....
-
-			//print
-			//std::cout << usernameLogin << ": " << msg << std::endl;
-		}
-
-		//check if Esc Pressed
-	} while (GetAsyncKeyState(VK_ESCAPE) == 0);
 
 	showOneGroupMenu(joinedGroupList.at(globalGroupId).c_str());
 	handleOneGroupMenu();
@@ -741,10 +778,13 @@ void handleResponse(string msg) {
 		string groupId = msg.substr(0, msg.find(" "));
 		msg = msg.substr(msg.find(" ") + 1);
 		string username = msg.substr(0, msg.find(" "));
+		msg = msg.substr(msg.find(" ") + 1);
+		string newMsg = msg.substr(0);
 
 		if (groupId == to_string(globalGroupId) && username == usernameLogin)
-			showGroupChatBox();
+			groupHistory += newMsg;
 
+		handleGroupChatBox();
 
 	}
 
@@ -756,10 +796,19 @@ void handleResponse(string msg) {
 		string groupId = msg.substr(0, msg.find(" "));
 		string newMessage = msg.substr(msg.find(" ") + 1);
 
+		EnterCriticalSection(&criticalSection);
+		if (curScreen == GROUP_CHAT_SCREEN)
+			isComing = true;
+		LeaveCriticalSection(&criticalSection);
+
 		
 
-		if (groupId == to_string(globalGroupId) && curScreen == GROUP_CHAT_SCREEN) {
+		/*if (groupId == to_string(globalGroupId) && curScreen == GROUP_CHAT_SCREEN) {
 			cout << newMessage << endl;
+		}*/
+
+		if (groupId == to_string(globalGroupId)) {
+			groupHistory += newMessage;
 		}
 	}
 
