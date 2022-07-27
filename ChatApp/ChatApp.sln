@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.23107.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ChatApp", "ChatApp\ChatApp.vcxproj", "{C5B153EE-0B24-4196-A033-569658A7E011}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ChatServer", "ChatServer\ChatServer.vcxproj", "{A06AD9C3-5F56-48A3-B8A6-18FB6B2ADBF9}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ChatClient", "ChatClient\ChatClient.vcxproj", "{9654B0C4-AD2A-4FF4-A6D4-853A4AFD03A9}"
@@ -17,14 +15,6 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{C5B153EE-0B24-4196-A033-569658A7E011}.Debug|x64.ActiveCfg = Debug|x64
-		{C5B153EE-0B24-4196-A033-569658A7E011}.Debug|x64.Build.0 = Debug|x64
-		{C5B153EE-0B24-4196-A033-569658A7E011}.Debug|x86.ActiveCfg = Debug|Win32
-		{C5B153EE-0B24-4196-A033-569658A7E011}.Debug|x86.Build.0 = Debug|Win32
-		{C5B153EE-0B24-4196-A033-569658A7E011}.Release|x64.ActiveCfg = Release|x64
-		{C5B153EE-0B24-4196-A033-569658A7E011}.Release|x64.Build.0 = Release|x64
-		{C5B153EE-0B24-4196-A033-569658A7E011}.Release|x86.ActiveCfg = Release|Win32
-		{C5B153EE-0B24-4196-A033-569658A7E011}.Release|x86.Build.0 = Release|Win32
 		{A06AD9C3-5F56-48A3-B8A6-18FB6B2ADBF9}.Debug|x64.ActiveCfg = Debug|x64
 		{A06AD9C3-5F56-48A3-B8A6-18FB6B2ADBF9}.Debug|x64.Build.0 = Debug|x64
 		{A06AD9C3-5F56-48A3-B8A6-18FB6B2ADBF9}.Debug|x86.ActiveCfg = Debug|Win32

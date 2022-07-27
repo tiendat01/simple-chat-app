@@ -1,118 +1,56 @@
 #include <stdio.h>
 #include <conio.h>
-#include<process.h>
-#include<iostream>
+#include <process.h>
+#include <iostream>
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 #include <string>
 #include <vector>
 #include <map>
-#include "Header.h"
 #include <sstream>
 
+#include "Protocol.h"
+#include "UtilsFunction.h"
 
 #pragma comment(lib, "ws2_32.lib")
 
 using namespace std;
 
-#define LOGIN_REQ "LOGIN"
-#define SIGNUP_REQ "REGISTER"
-#define LOGOUT_REQ "LOGOUT"
-
-#define LIST_JOINED_GROUP_REQ "LISTGROUP"
-#define CREATE_GROUP_REQ "CREATEGROUP"
-#define LEAVE_GROUP_REQ "LEAVEGROUP"
-
-#define INVITE_REQ "INVITE"
-#define GET_INVITATION_REQ "GETINVITATION"
-#define ACCEPT_REQ "ACCEPT"
-#define DENY_REQ "DENY"
-
-
-#define ACCOUNT_LEAVE_GROUP "LEAVE" 
-#define LIST_GROUP "LISTGROUP"
-#define LIST_MEMBERS_GROUP "LISTMEMBERS" 
-#define LOAD_MESSAGE  "LOADMESSAGE"
-#define MESSAGE "MESSAGE"
 
 SOCKET clientSock;
 
 CRITICAL_SECTION criticalSection;
 string receiveBuffer;
-SCREEN curScreen = LOGIN_SCREEN;
+SCREEN curScreen;
 
 map<int, string> joinedGroupList; // for showing only in LISTGROUP req. Don't use 
 int globalGroupId = -1;
 string groupHistory;
 string usernameLogin;
 
-bool isComing = false;
+string userChatWith;
+vector<string> onlineUsersList;
+vector<string> conversationMessages;
 
 void handleResponse(string msg);
-vector<string> simple_tokenizer(string s)
-{
-	stringstream ss(s);
-	string word;
-	vector<string>sp;
-	while (ss >> word) {
-		sp.push_back(word);
-	}
-	return sp;
-}
-
-// cut to ClientHeader.h
-/* The recv() wrapper function */
-int Receive(SOCKET s, char *buff, int size, int flags) {
-	int n;
-
-	n = recv(s, buff, size, flags);
-	if (n == SOCKET_ERROR)
-		printf("Error %d: Cannot receive data.\n", WSAGetLastError());
-	else if (n == 0)
-		printf("Client disconnects.\n");
-	return n;
-}
-
-// cut to ClientHeader.h
-/* The send() wrapper function*/
-int Send(SOCKET s, string request, int size, int flags) {
-	int n;
-	const char* buff = request.c_str();
-	n = send(s, buff, size, flags);
-	if (n == SOCKET_ERROR)
-		printf("Error %d: Cannot send data.\n", WSAGetLastError());
-
-	return n;
-}
+void navigateScreen(SCREEN screen);
 
 
-// cut to ClientHeader.h
-int getChoice(int maxChoice) {
-	string choice;
-	do {
-		cout << "Your choice: ";
-		cin >> choice;
-		//cin.ignore();
-	} while (choice.at(0) > '0' + maxChoice || choice.at(0) < '0' || choice.length() != 1);
-	return choice.at(0) - 48;
-}
-
-
+//void navigateScreen(SCREEN screen);
 
 
 
 /// ################# SEND REQUEST SERVER  #################
 
 
-
 /// PART 1: LOG IN, SIGN UP, LOG OUT
 
 void login() {
 	string username, password;
-	cout << "Username: "; cin >> username; cin.ignore(); // ignore '\n'
+	cout << "Username: "; cin >> username; cin.ignore();
 	cout << "Password: "; getline(cin, password);
 
-	string req = LOGIN_REQ + string(DELIMITER) + username + " " + password + ENDING_DELIMITER;
+	string req = LOGIN_REQ + string(DELIMITER1) + username + " " + password + ENDING_DELIMITER;
 	int ret = Send(clientSock, req, req.length(), 0);
 
 	usernameLogin = username;
@@ -125,7 +63,7 @@ void signup() {
 	cout << "Username: "; cin >> username; cin.ignore(); // ignore '\n'
 	cout << "Password: "; getline(cin, password);
 
-	string req = SIGNUP_REQ + string(DELIMITER) + username + " " + password + ENDING_DELIMITER;
+	string req = SIGNUP_REQ + string(DELIMITER1) + username + " " + password + ENDING_DELIMITER;
 	int ret = Send(clientSock, req, req.length(), 0);
 }
 
@@ -139,74 +77,39 @@ void logout() {
 /// PART 2: INBOX CHAT ===> GIANG UPDATE THIS
 
 // send request to get list of online users and show
+void loadOnlineUsers() {
+	sendProcessing(clientSock, ONLINE_REQ);
+}
+
+void inboxAnUser() {
+	cout << "Enter username you want to chat with: ";
+	cin >> userChatWith;
+	sendProcessing(clientSock, CHECK_REQ, userChatWith);
+}
+
+void sendInboxMessage() {
+	cout << "Enter message: ";
+	cin.ignore();
+	string message; getline(cin, message);
+	sendProcessing(clientSock, SEND_REQ, userChatWith, message);
+}
+
+void showInboxMessages() {
+	sendProcessing(clientSock, LOAD_CONVERSATION_REQ, userChatWith);
+}
+
+void blockUser() {
+	sendProcessing(clientSock, BLOCK_REQ, userChatWith);
+}
+
+void unblockUser() {
+	sendProcessing(clientSock, UNBLOCK_REQ, userChatWith);
+}
+
+/// ######### SHOW onlineUsersList VARIABLE ###############
 void showListOnlineUsers() {
-	
-}
-
-
-// choose online user to chat with, return username
-string chooseChatUser() {
-	return NULL;
-}
-
-
-// chat with
-void chatWith(string username) {
-
-	//showHistoryInbox();
-
-	bool back = false;
-	string value;
-	while (!back) {
-
-		do
-		{
-			//check if any input.
-			if (_kbhit()) {
-				//probable user started to type, block to read till the user press Enter.
-				std::getline(std::cin, value);
-
-				//if success
-				if (std::cin.good()) {
-					//cout << "(sent)";
-				}
-				else {
-					//firstly, clear error flag 
-					std::cin.clear();
-					//ignore 
-					std::cin.ignore(10000, '\n');
-
-				}
-
-				// send to server and save to vector
-				// ....
-
-				//print
-				std::cout << value << std::endl;
-			}
-
-			//check if Esc Pressed
-		} while (GetAsyncKeyState(VK_ESCAPE) == 0);
-
-		// stopConversationDialog()
-		int c = -1;
-		cout << "0. Cancel" << endl;
-		cout << "1. Back" << endl;
-		cout << "2. Block" << endl;
-		cout << "your choice:";
-
-		cin >> c;
-		switch (c) {
-		case 0:
-			break;
-		case 1:
-			back = true;
-			break;
-		case 2:
-			break;
-		}
-	}
-
+	cout << "\n\nUser Online:\n";
+	for (int i = 0; i < onlineUsersList.size(); i++) cout << (i + 1) << " " << onlineUsersList[i] << "\n";
 }
 
 
@@ -222,8 +125,8 @@ void showListJoinedGroup() {
 
 
 void createNewGroup() {
-	string groupDisplayName; 
-	cout << "Enter your new Group name (forbidden character '/'): "; 
+	string groupDisplayName;
+	cout << "Enter your new Group name (forbidden character '/'): ";
 	cin.ignore(); getline(cin, groupDisplayName);
 
 	string req = CREATE_GROUP_REQ + string(" ") + groupDisplayName + string(ENDING_DELIMITER);
@@ -243,7 +146,7 @@ void invite() {
 
 	string destUsername;
 	int groupId;
-	cout << "Enter your joined group id: "; cin >> groupId; 
+	cout << "Enter your joined group id: "; cin >> groupId;
 	cout << "Enter username of person you want to invite: "; cin >> destUsername;
 
 	string req = INVITE_REQ + string(" ") + destUsername + " " + to_string(groupId) + string(ENDING_DELIMITER);
@@ -264,13 +167,13 @@ void responseInvitation() {
 	string groupIdStr, choiceStr;
 	int groupId, choice;
 	cout << "Enter any groupId in your invitations: "; cin >> groupIdStr; groupId = atoi(groupIdStr.c_str());
-	cout << "Choose Operation with this invitation (1: Accept / 0: Deny / Default: Do nothing and back): "; 
+	cout << "Choose Operation with this invitation (1: Accept / 0: Deny / Default: Do nothing and back): ";
 	cin.ignore(); getline(cin, choiceStr); choice = choiceStr[0] - 48;
 
 	string req;
 	switch (choice)
 	{
-	case 0: 
+	case 0:
 		req = DENY_REQ + string(" ") + to_string(groupId) + string(ENDING_DELIMITER);
 		Send(clientSock, req, req.length(), 0);
 		break;
@@ -288,7 +191,7 @@ void responseInvitation() {
 
 void showListMemberGroup() {
 
-	string req = string(LIST_MEMBERS_GROUP) + string(DELIMITER) + to_string(globalGroupId) + ENDING_DELIMITER;
+	string req = string(LIST_MEMBERS_GROUP) + string(DELIMITER1) + to_string(globalGroupId) + ENDING_DELIMITER;
 	int ret = Send(clientSock, req, req.length(), 0);
 }
 
@@ -303,29 +206,27 @@ void leaveGroup(int groupId) {
 
 
 void showGroupChatBox() {
-	string req = LOAD_MESSAGE + string(DELIMITER) + to_string(globalGroupId) + ENDING_DELIMITER;
+	string req = LOAD_GROUP_MESSAGE + string(DELIMITER1) + to_string(globalGroupId) + ENDING_DELIMITER;
 	int ret = Send(clientSock, req, req.length(), 0);
 }
 
 
 void sendNewMsg(string msg) {
-	string req = MESSAGE + string(DELIMITER) + to_string(globalGroupId) + string(DELIMITER) + msg + ENDING_DELIMITER;
+	string req = GROUP_MESSAGE + string(DELIMITER1) + to_string(globalGroupId) + string(DELIMITER1) + msg + ENDING_DELIMITER;
 	int ret = Send(clientSock, req, req.length(), 0);
 }
 
 
 
 
-
-
-/// ######### HANDLE ALL MENU GUI ###############
+/// ######### HANDLE ALL MENU CLI ###############
 
 
 // LOGIN_SCREEN
 void handleLoginMenu() {
 	int choice = getChoice(2);
 	switch (choice) {
-	case 0: 
+	case 0:
 		closesocket(clientSock);
 		WSACleanup();
 		exit(0);
@@ -346,27 +247,80 @@ void handleLoginMenu() {
 void handleMainMenu() {
 	int choice = getChoice(3);
 	switch (choice) {
-	// logout and exit
+		// logout and exit
 	case 0:
 		logout();
 		closesocket(clientSock);
 		WSACleanup();
 		exit(0);
 		break;
-	// logout and back (oke)
+		// logout and back
 	case 1:
 		logout();
 		break;
-	// inbox (not)
+		// inbox
 	case 2:
-		showListOnlineUsers();
+		loadOnlineUsers();
 		break;
-	// group chat (not)
+		// group chat
 	case 3:
 		showListJoinedGroup();
 		break;
 	default:
 		break;
+	}
+}
+
+
+void handleChatMenu() {
+
+	int choice = getChoice(1);
+	switch (choice) {
+		// back to Main Menue
+	case 0:
+		navigateScreen(MAIN_SCREEN);
+		break;
+
+		//send inbox request to server
+	case 1:
+		inboxAnUser();
+		break;
+	}
+}
+
+// INBOX CHAT MENU
+void handleInboxMenu() {
+	int choice = getChoice(4);
+	switch (choice) {
+
+	case 0: //Back to chat menu
+		loadOnlineUsers();
+		break;
+	case 1: //Send message
+		sendInboxMessage();
+		break;
+	case 2: //Show history messages
+		showInboxMessages();
+		break;
+	case 3: //Block this user
+		blockUser();
+		break;
+	case 4: //Unblock this user
+		unblockUser();
+		break;
+	}
+}
+
+// IN CONVERSATION BETWEEN 2 USERS
+void handleConversation() {
+	printf("\n\n-------------- %s --------------\n", userChatWith.c_str());
+	printf("Press '1' to leave\n\n");
+	for (string message : conversationMessages) {
+		cout << message << "\n";
+	}
+	string leave; cin >> leave;
+	if (leave == "1") {
+		navigateScreen(INBOX_SCREEN);
 	}
 }
 
@@ -383,7 +337,7 @@ void handleGroupMenu() {
 		break;
 		// create new group chat
 	case 1:
-		createNewGroup(); 
+		createNewGroup();
 		break;
 		// invite new person to your group
 	case 2:
@@ -405,7 +359,7 @@ void handleGroupMenu() {
 
 // ONE_GROUP_SCREEN
 void handleOneGroupMenu() {
-	
+
 	int choice = getChoice(3);
 	switch (choice)
 	{
@@ -435,66 +389,19 @@ void handleOneGroupMenu() {
 }
 
 
+// THIS FUNCTION IS UPDATED IN ANOTHER PROJECT: group-chat (by LinhVD)
 void handleGroupChatBox() {
 	system("cls");
 	cout << groupHistory << endl;
-
-	//string msg;
-	//do
-	//{
-	//	//check if any input.
-	//	if (_kbhit()) {
-
-	//		//probable user started to type, block to read till the user press Enter.
-	//		cin.ignore();
-	//		std::getline(std::cin, msg);
-
-	//		sendNewMsg(msg);
-
-	//		char buff[BUFF_SIZE];
-	//		int ret = recv(clientSock, buff, BUFF_SIZE, 0);
-	//		if (ret == SOCKET_ERROR) {
-	//			printf("Error %d: Cannot receive data.\n", WSAGetLastError());
-	//			break;
-	//		}
-	//		else if (ret == 0) {
-	//			printf("Client disconnects.\n");
-	//			break;
-	//		}
-	//		else if (strlen(buff) > 0) {
-	//			buff[ret] = 0;
-
-	//			// xu ly truyen dong
-	//			// buff = "...\r\n" hoac "..." hoac "...\r\n..."
-	//			receiveBuffer += string(buff);
-
-	//			while (receiveBuffer.find("\r\n") != string::npos) {
-	//				size_t found = receiveBuffer.find("\r\n");
-	//				string message = receiveBuffer.substr(0, found); //message contains code received from server
-	//																 //std::cout << message; //display a message to user according to code received
-
-	//				handleResponse(message);
-
-	//				receiveBuffer = receiveBuffer.substr(found + 2); //cut the part of the received string that has been processed
-	//			}
-	//		}
-
-	//		/*system("cls");
-	//		cout << groupHistory << endl;*/
-	//	}
-
-	//	//check if Esc Pressed
-	//} while (GetAsyncKeyState(VK_ESCAPE) == 0);
-
 	bool isOut = false;
 	string msg;
 	//while (!isOut) {
-		cin.ignore(); getline(cin, msg);
+	cin.ignore(); getline(cin, msg);
 
-		/*if (msg[0] == '1')
-			break;*/
-		if (msg.length() > 0)
-			sendNewMsg(msg);
+	/*if (msg[0] == '1')
+	break;*/
+	if (msg.length() > 0)
+		sendNewMsg(msg);
 	//}
 
 
@@ -510,36 +417,36 @@ void handleGroupChatBox() {
 // need refactory and cut to Header.h
 void handleResponse(string msg) {
 
-	//cout << "Receive from server: " + msg << endl;
+	/// PART 1
 
 	// LOGIN
-	if (msg.find("100") == 0) {
+	if (msg.find(LOGIN_SUCCESS) == 0) {
 		cout << "\nLogin successfully\n";
 		curScreen = MAIN_SCREEN;
 		navigateScreen(MAIN_SCREEN);
 		usernameLogin = msg.substr(msg.find(" ") + 1);
 	}
 	// LOGIN + INVITE
-	else if (msg == "101") {
+	else if (msg == ACCOUNT_NOT_FOUND) {
 		cout << "\nUsername not exist\n";
 		navigateScreen(curScreen);
 	}
 	// LOGIN
-	else if (msg == "102") {
+	else if (msg == INCORRECT_PASSWORD) {
 		cout << "\nPassword incorrect\n";
 		curScreen = LOGIN_SCREEN;
 		navigateScreen(LOGIN_SCREEN);
 
 	}
 	// LOGIN
-	else if (msg == "103") {
+	else if (msg == ACCOUNT_LOGGED_IN) {
 		cout << "\nAn account has been logged in already in this session!\n";
 		curScreen = LOGIN_SCREEN;
 		navigateScreen(LOGIN_SCREEN);
 
 	}
 	// LOGIN
-	else if (msg == "104") {
+	else if (msg == ACCOUNT_OTHER_SESSION) {
 		cout << "\nThis account has been logged in already in other session!\n";
 		curScreen = LOGIN_SCREEN;
 		navigateScreen(LOGIN_SCREEN);
@@ -547,13 +454,13 @@ void handleResponse(string msg) {
 	}
 
 	// SIGN UP
-	else if (msg == "110") {
+	else if (msg == SIGNUP_SUCCESS) {
 		cout << "\nCreate new account sucessfully\n";
 		curScreen = LOGIN_SCREEN;
 		navigateScreen(LOGIN_SCREEN);
 	}
 	// SIGN UP
-	else if (msg == "111") {
+	else if (msg == ACCOUNT_EXISTED) {
 		cout << "\nUsername existed\n";
 		cout << "Do you want to continue to sign up ? (0: Back / 1: Continue) ";
 		int choice = getChoice(1);
@@ -566,23 +473,106 @@ void handleResponse(string msg) {
 	}
 
 	// LOG OUT
-	else if (msg == "120") {
+	else if (msg == LOGOUT_SUCESS) {
 		cout << "\nLog out successfully\n";
 		curScreen = LOGIN_SCREEN;
 		navigateScreen(LOGIN_SCREEN);
 	}
 
 	// LOG OUT + INVITATION + ...
-	else if (msg == "201") {
+	else if (msg == ACCOUNT_NOT_LOGGED_IN) {
 		cout << "\nYou not logged in yet\n";
 		navigateScreen(curScreen);
 	}
 
 
+	/// PART 2: CHAT 1-1
 
+
+	// LIST ONLINE USERS
+	else if (msg.substr(0, 3) == LIST_ONLINE) {
+		string online = msg.substr(4);
+		onlineUsersList.clear();
+		while (online.find(" ") != string::npos) {
+			size_t found = online.find(" ");
+			onlineUsersList.push_back(online.substr(0, found));
+			online = online.substr(found + 1);
+		}
+		onlineUsersList.push_back(online);
+		navigateScreen(CHAT_SCREEN);
+	}
+
+	// CHECK IF USER EXISTS
+	else if (msg == USERNAME_EXIST) {
+		navigateScreen(INBOX_SCREEN);
+	}
+
+	else if (msg == USERNAME_NOT_EXIST) {
+		cout << "\nThis username doesn't exist\n\n";
+		loadOnlineUsers();
+	}
+
+	// SEND MESSAGE INBOX
+	else if (msg.substr(0, 3) == SEND_SUCCESS) {
+		cout << "\n\n";
+		showInboxMessages();
+	}
+
+	else if (msg.substr(0, 3) == CONVERSATION_HISTORY) {
+		string allMessages = msg.substr(4);
+		conversationMessages.clear();
+		while (allMessages.find("\n") != string::npos) {
+			size_t found = allMessages.find("\n");
+			conversationMessages.push_back(allMessages.substr(0, found));
+			allMessages = allMessages.substr(found + 1);
+		}
+		onlineUsersList.push_back(allMessages);
+		navigateScreen(CONVERSATION_SCREEN);
+	}
+
+	else if (msg.substr(0, 3) == RECEICE_MESSAGE) {
+
+		string content = msg.substr(4);
+		string username = content.substr(0, content.find(" "));
+		string newMessage = content.substr(content.find(" ") + 1);
+		if (curScreen == CONVERSATION_SCREEN && userChatWith == username) {
+			cout << newMessage << "\n";
+		}
+	}
+
+	// BLOCK
+	else if (msg == BLOCK_SUCCESS) {
+		cout << "\nBlock successfully\n\n";
+		navigateScreen(INBOX_SCREEN);
+	}
+
+	else if (msg == BLOCK_BEFORE) {
+		cout << "\nYou have already blocked this user\n\n";
+		navigateScreen(INBOX_SCREEN);
+	}
+
+	else if (msg == BLOCKED_BEFORE) {
+		cout << "\nYou have already been blocked by this user\n\n";
+		navigateScreen(INBOX_SCREEN);
+	}
+
+	// UNBLOCK
+	else if (msg == UNBLOCK_SUCCESS) {
+		cout << "\nUnblock successfully\n\n";
+		navigateScreen(INBOX_SCREEN);
+	}
+
+	else if (msg == NOT_BLOCK_BEFORE) {
+		cout << "\nYou have not blocked this username before\n\n";
+		navigateScreen(INBOX_SCREEN);
+	}
+
+
+
+	/// PART 3 - GROUP CHAT
 
 	// CREATE NEW GROUP
-	else if (msg.find("300") != string::npos) {
+	else if (msg.find(CREATE_GROUP_SUCCESS) != string::npos) {
 		cout << "\nCreate new group successfully ||| GROUP NAME: " << msg.substr(3) << "\n";
 
 		// need to reload list of joined group... ???
@@ -590,50 +580,48 @@ void handleResponse(string msg) {
 	}
 
 	// CREATE NEW GROUP
-	else if (msg == "301") {
+	else if (msg == FOBBIDEN_TOKEN) {
 		cout << "\nGroup name contains fobbiden character '/'\n";
-		
+
 		// come back to curScreen = GROUP_MENU
 		showListJoinedGroup();
 
 	}
 
 
-
-
 	// INVITE 
-	else if (msg.find("310") != string::npos) {
+	else if (msg.find(INVITE_SUCCESS) != string::npos) {
 		cout << "\nSend inventation to a person to join your group successfully\n";
 		curScreen = GROUP_SCREEN;
 		navigateScreen(GROUP_SCREEN);
 	}
 	// INVITE + LEAVE GROUP
-	else if (msg == "312") {
+	else if (msg == GROUP_NOT_EXIST) {
 		cout << "\nGroup ID not exist\n";
 		navigateScreen(curScreen);
 	}
 	// INVITE 
-	else if (msg == "313") {
+	else if (msg == USER_ALREADY_IN_GROUP) {
 		cout << "\nUsername already in this group\n";
 		curScreen = GROUP_SCREEN;
 		navigateScreen(GROUP_SCREEN);
 	}
 	// INVITE + LEAVEGROUP + ...
-	else if (msg == "341") {
+	else if (msg == NOT_IN_GROUP) {
 		cout << "\nYou are not in this group currently.\n";
 		navigateScreen(curScreen);
 	}
 	// INVITE
-	else if (msg == "314") {
+	else if (msg == DUPLICATE_INVITATION) {
 		cout << "\nYou have already sent invitation to this user to join this group\n";
 		curScreen = GROUP_SCREEN;
 		navigateScreen(GROUP_SCREEN);
 	}
 
 	// GET INVITATION
-	else if (msg.find("320") == 0) {
+	else if (msg.find(GET_INVITATION_SUCESS) == 0) {
 
-		string content = msg.substr(strlen("320") + 1);
+		string content = msg.substr(strlen(GET_INVITATION_SUCESS) + 1);
 		cout << "Invitation to group from other user:\n";
 
 		if (content.find("/") == string::npos) {
@@ -664,8 +652,8 @@ void handleResponse(string msg) {
 	}
 
 	// ACCEPT invitation
-	else if (msg.find("330") == 0) {
-		string content = msg.substr(strlen("330") + 1);
+	else if (msg.find(ACCEPT_SUCCESS) == 0) {
+		string content = msg.substr(strlen(ACCEPT_SUCCESS) + 1);
 		int groupId = atoi(content.substr(0, content.find(" ")).c_str());
 		string groupDisplayName = content.substr(content.find(" ") + 1);
 		cout << "\nAccept and join groupId: " << groupId << " name: " << groupDisplayName << " successfully\n";
@@ -674,9 +662,9 @@ void handleResponse(string msg) {
 	}
 
 	// DENY invitation
-	else if (msg.find("333") == 0) {
+	else if (msg.find(DENY_SUCCESS) == 0) {
 
-		string content = msg.substr(strlen("333") + 1);
+		string content = msg.substr(strlen(DENY_SUCCESS) + 1);
 		int groupId = atoi(content.substr(0, content.find(" ")).c_str());
 		string groupDisplayName = content.substr(content.find(" ") + 1);
 		cout << "\nDeny to join groupId: " << groupId << " name: " << groupDisplayName << " successfully\n";
@@ -685,13 +673,13 @@ void handleResponse(string msg) {
 		navigateScreen(GROUP_SCREEN);
 	}
 
-	else if (msg == "331") {
+	else if (msg == NOT_INVITED_TO_THIS_GROUP) {
 		cout << "\nYou aren't invited to this group by anyone!\n";
 		curScreen = GROUP_SCREEN;
 		navigateScreen(GROUP_SCREEN);
 	}
 
-	else if (msg == "332") {
+	else if (msg == ALREADY_IN_THIS_GROUP) {
 		cout << "\nYou are in this group already\n";
 		curScreen = GROUP_SCREEN;
 		navigateScreen(GROUP_SCREEN);
@@ -702,8 +690,8 @@ void handleResponse(string msg) {
 
 
 	// LISTGROUP
-	else if (msg.find("360") == 0) {
-		string content = msg.substr(strlen("360") + 1);
+	else if (msg.find(LIST_GROUP_SUCCESS) == 0) {
+		string content = msg.substr(strlen(LIST_GROUP_SUCCESS) + 1);
 		// load to client's map
 
 		joinedGroupList.clear();
@@ -742,17 +730,17 @@ void handleResponse(string msg) {
 
 		// After get all join group ==> navigate to respective screen
 
-		
+
 	}
 
 	// LEAVE GROUP
-	else if (msg == "350") {
+	else if (msg == LEAVE_GROUP_SUCCESS) {
 		cout << "\nLeave group sucessfully\n";
 		showListJoinedGroup();
 	}
-	
+
 	// SHOW LIST OF MEMBERS IN GROUP
-	else if (msg.substr(0, 3) == "370") {
+	else if (msg.substr(0, 3) == LISTMEMBERS_SUCCESS) {
 		msg = msg.substr(msg.find(" ") + 1);
 		cout << msg << endl;
 
@@ -762,7 +750,7 @@ void handleResponse(string msg) {
 
 
 	// SHOW GROUP CHAT MESSSAGES
-	else if (msg.substr(0, 3) == "380") {
+	else if (msg.substr(0, 3) == LOADMSG_SUCCESS) {
 		msg = msg.substr(msg.find(" ") + 1);
 		msg = msg.substr(msg.find(" ") + 1);
 		groupHistory = msg;
@@ -773,7 +761,7 @@ void handleResponse(string msg) {
 
 
 	// SUCESS SEND TO GROUP
-	else if (msg.substr(0, 3) == "390") {
+	else if (msg.substr(0, 3) == GROUPMESSAGE_SUCCESS) {
 		msg = msg.substr(msg.find(" ") + 1);
 		string groupId = msg.substr(0, msg.find(" "));
 		msg = msg.substr(msg.find(" ") + 1);
@@ -790,22 +778,11 @@ void handleResponse(string msg) {
 
 
 	// 
-	else if (msg.substr(0, 3) == "381") {
+	else if (msg.substr(0, 3) == RECEIVE_MESSAGE_GROUP) {
 		//cout << "Server return " << msg << endl;
 		msg = msg.substr(msg.find(" ") + 1);
 		string groupId = msg.substr(0, msg.find(" "));
 		string newMessage = msg.substr(msg.find(" ") + 1);
-
-		EnterCriticalSection(&criticalSection);
-		if (curScreen == GROUP_CHAT_SCREEN)
-			isComing = true;
-		LeaveCriticalSection(&criticalSection);
-
-		
-
-		/*if (groupId == to_string(globalGroupId) && curScreen == GROUP_CHAT_SCREEN) {
-			cout << newMessage << endl;
-		}*/
 
 		if (groupId == to_string(globalGroupId)) {
 			groupHistory += newMessage;
@@ -826,6 +803,7 @@ void handleResponse(string msg) {
 
 
 void navigateScreen(SCREEN screen) {
+	curScreen = screen;
 	switch (screen) {
 	case LOGIN_SCREEN:
 		showLoginMenu();
@@ -835,16 +813,22 @@ void navigateScreen(SCREEN screen) {
 		showMainMenu();
 		handleMainMenu();
 		break;
+	case CHAT_SCREEN:
+		showListOnlineUsers();
+		showChatMenu();
+		handleChatMenu();
+		break;
 	case INBOX_SCREEN:
-
-		// GIANG UPDATE THIS 
-
+		showInboxMenu(userChatWith);
+		handleInboxMenu();
+		break;
+	case CONVERSATION_SCREEN:
+		handleConversation();
 		break;
 	case GROUP_SCREEN:
 		showGroupMenu();
 		handleGroupMenu();
 		break;
-
 
 	case ONE_GROUP_SCREEN:
 		int targetGroupId;
@@ -890,7 +874,7 @@ unsigned __stdcall recvThread(void *param) {
 		else if (strlen(buff) > 0) {
 			buff[ret] = 0;
 
-			// xu ly truyen dong
+			// stream handle
 			// buff = "...\r\n" hoac "..." hoac "...\r\n..."
 			receiveBuffer += string(buff);
 
@@ -899,9 +883,11 @@ unsigned __stdcall recvThread(void *param) {
 				string message = receiveBuffer.substr(0, found); //message contains code received from server
 				//std::cout << message; //display a message to user according to code received
 
+				receiveBuffer = receiveBuffer.substr(found + 2); //cut the part of the received string that has been processed
+
 				handleResponse(message);
 
-				receiveBuffer = receiveBuffer.substr(found + 2); //cut the part of the received string that has been processed
+
 			}
 		}
 	}
@@ -942,8 +928,6 @@ int main(int argc, char* argv[]) {
 		return 0;
 	}
 
-	/*int timeout = 1000;
-	setsockopt(clientSock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(int));*/
 
 	printf("Client started!\n");
 
@@ -975,13 +959,14 @@ int main(int argc, char* argv[]) {
 	myHandle[0] = (HANDLE)_beginthreadex(0, 0, recvThread, (void*)clientSock, 0, 0); //start thread
 	myHandle[1] = (HANDLE)_beginthreadex(0, 0, recvThread, (void*)clientSock, 0, 0); //start thread
 
-	navigateScreen(curScreen);
+
+	navigateScreen(LOGIN_SCREEN);
 
 	WaitForMultipleObjects(2, myHandle, TRUE, INFINITE);
 
 	DeleteCriticalSection(&criticalSection);
 
-	
+
 
 	// STEP 6: Close socket
 	if (closesocket(clientSock) == SOCKET_ERROR) {
@@ -997,4 +982,3 @@ int main(int argc, char* argv[]) {
 
 	return 0;
 }
-

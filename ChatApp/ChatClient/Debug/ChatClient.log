@@ -1,16 +1,21 @@
-﻿Build started 7/26/2022 12:28:27 AM.
+﻿Build started 7/27/2022 10:06:41 PM.
      1>Project "E:\network-programming\Chat-App-BTL-network-programming\ChatApp\ChatClient\ChatClient.vcxproj" on node 2 (Build target(s)).
      1>ClCompile:
-         C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"Debug\\" /Fd"Debug\vc140.pdb" /Gd /TP /analyze- /errorReport:prompt Client.cpp
+         C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"Debug\\" /Fd"Debug\vc140.pdb" /Gd /TP /analyze- /errorReport:prompt Client.cpp UtilsFunction.cpp
          Client.cpp
-     1>e:\network-programming\chat-app-btl-network-programming\chatapp\chatclient\client.cpp(656): warning C4018: '<': signed/unsigned mismatch
-     1>e:\network-programming\chat-app-btl-network-programming\chatapp\chatclient\client.cpp(718): warning C4018: '<': signed/unsigned mismatch
+     1>e:\network-programming\chat-app-btl-network-programming\chatapp\chatclient\client.cpp(112): warning C4018: '<': signed/unsigned mismatch
+     1>e:\network-programming\chat-app-btl-network-programming\chatapp\chatclient\client.cpp(644): warning C4018: '<': signed/unsigned mismatch
+     1>e:\network-programming\chat-app-btl-network-programming\chatapp\chatclient\client.cpp(706): warning C4018: '<': signed/unsigned mismatch
+         Generating Code...
+         Compiling...
+         UtilsFunction.cpp
+         Generating Code...
        Link:
          C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"E:\network-programming\Chat-App-BTL-network-programming\ChatApp\Debug\ChatClient.exe" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /Debug /PDB:"E:\network-programming\Chat-App-BTL-network-programming\ChatApp\Debug\ChatClient.pdb" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"E:\network-programming\Chat-App-BTL-network-programming\ChatApp\Debug\ChatClient.lib" /MACHINE:X86 Debug\Client.obj
-         Debug\Source.obj
+         Debug\UtilsFunction.obj
          ChatClient.vcxproj -> E:\network-programming\Chat-App-BTL-network-programming\ChatApp\Debug\ChatClient.exe
      1>Done Building Project "E:\network-programming\Chat-App-BTL-network-programming\ChatApp\ChatClient\ChatClient.vcxproj" (Build target(s)).
 
 Build succeeded.
 
-Time Elapsed 00:00:02.95
+Time Elapsed 00:00:02.25
